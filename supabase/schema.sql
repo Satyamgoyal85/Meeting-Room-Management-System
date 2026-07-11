@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. Departments Table
 CREATE TABLE IF NOT EXISTS public.departments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
     is_restricted_default BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.departments (
 
 -- 2. Employees Table
 CREATE TABLE IF NOT EXISTS public.employees (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     auth_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     employee_id TEXT UNIQUE NOT NULL, -- e.g., "DAL-1023", "DAL-0001"
     name TEXT NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
 
 -- 3. Rooms Table
 CREATE TABLE IF NOT EXISTS public.rooms (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE, -- e.g., "Room 5 - Falcon"
     floor TEXT NOT NULL,
     capacity INTEGER NOT NULL CHECK (capacity > 0),
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS public.rooms (
 
 -- 3.5 Amenities Table
 CREATE TABLE IF NOT EXISTS public.amenities (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
     icon TEXT NOT NULL DEFAULT 'Sparkles',
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS public.amenities (
 
 -- 4. Bookings Table
 CREATE TABLE IF NOT EXISTS public.bookings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     room_id UUID REFERENCES public.rooms(id) ON DELETE CASCADE NOT NULL,
     employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE NOT NULL,
     department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS public.bookings (
 
 -- 5. Audit Log Table
 CREATE TABLE IF NOT EXISTS public.audit_log (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     action_type TEXT NOT NULL CHECK (
         action_type IN ('create_booking', 'cancel_booking', 'edit_booking', 'room_change', 'department_change', 'employee_change')
     ),
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
 
 -- 6. Booking Invitees Table
 CREATE TABLE IF NOT EXISTS public.booking_invitees (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     booking_id UUID REFERENCES public.bookings(id) ON DELETE CASCADE NOT NULL,
     employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE NOT NULL,
     status TEXT NOT NULL DEFAULT 'invited',
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS public.booking_invitees (
 
 -- 7. SMTP Settings Table
 CREATE TABLE IF NOT EXISTS public.smtp_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     server_address TEXT NOT NULL,
     port INTEGER NOT NULL DEFAULT 587,
     username TEXT NOT NULL,
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS public.smtp_settings (
 
 -- 8. Email Logs Table
 CREATE TABLE IF NOT EXISTS public.email_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     recipient TEXT NOT NULL,
     subject TEXT NOT NULL,
     event_type TEXT NOT NULL,
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS public.email_logs (
 
 -- 9. Password Reset Tokens Table
 CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE NOT NULL,
     token_hash TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
@@ -230,7 +230,7 @@ BEGIN
         FROM public.bookings
         WHERE room_id = NEW.room_id
           AND status = 'confirmed'
-          AND id != COALESCE(NEW.id, uuid_generate_v4())
+          AND id != COALESCE(NEW.id, gen_random_uuid())
           AND (start_time, end_time) OVERLAPS (NEW.start_time, NEW.end_time);
 
         IF conflict_count > 0 THEN

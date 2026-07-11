@@ -16,7 +16,7 @@
 
 -- ── 1. Create Summary Aggregation Table (usage_stats) ─────────────────────────
 CREATE TABLE IF NOT EXISTS public.usage_stats (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     room_id UUID REFERENCES public.rooms(id) ON DELETE CASCADE NOT NULL,
     department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
     period_start DATE NOT NULL,          -- Monday of the week (weekly) or 1st of the month (monthly)
@@ -32,7 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_usage_stats_room_dept ON public.usage_stats(room_
 
 -- ── 2. Create Cleanup Job Execution Logs Table (cleanup_job_logs) ─────────────
 CREATE TABLE IF NOT EXISTS public.cleanup_job_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_name TEXT NOT NULL DEFAULT 'daily_booking_cleanup',
     status TEXT NOT NULL CHECK (status IN ('running', 'success', 'failed', 'completed_with_errors')),
     started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -84,7 +84,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    v_job_id UUID := uuid_generate_v4();
+    v_job_id UUID := gen_random_uuid();
     v_eligible_record RECORD;
     v_delete_ids UUID[] := '{}';
     v_aggregated_count INTEGER := 0;

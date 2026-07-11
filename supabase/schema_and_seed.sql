@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- 1. DEPARTMENTS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.departments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
     is_restricted_default BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.departments (
 -- 2. EMPLOYEES TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.employees (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     auth_user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE SET NULL,
     employee_id TEXT NOT NULL UNIQUE, -- e.g., ECN-1001
     name TEXT NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
 -- 3. ROOMS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.rooms (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     floor TEXT NOT NULL,
     capacity INTEGER NOT NULL CHECK (capacity > 0),
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS public.rooms (
 -- 4. AMENITIES TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.amenities (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
     icon TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS public.amenities (
 -- 5. BOOKINGS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.bookings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     room_id UUID REFERENCES public.rooms(id) ON DELETE CASCADE NOT NULL,
     employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE NOT NULL,
     department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL NOT NULL,
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS public.bookings (
 -- 6. AUDIT LOG TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.audit_log (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     action_type TEXT NOT NULL CHECK (
         action_type IN ('create_booking', 'cancel_booking', 'edit_booking', 'room_change', 'department_change', 'employee_change', 'account_locked', 'password_reset')
     ),
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
 -- 7. BOOKING INVITEES TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.booking_invitees (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     booking_id UUID REFERENCES public.bookings(id) ON DELETE CASCADE NOT NULL,
     employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE NOT NULL,
     status TEXT NOT NULL DEFAULT 'invited',
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS public.booking_invitees (
 -- 8. SMTP SETTINGS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.smtp_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     server_address TEXT NOT NULL,
     port INTEGER NOT NULL DEFAULT 587,
     username TEXT NOT NULL,
@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS public.smtp_settings (
 -- 9. EMAIL LOGS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.email_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     recipient TEXT NOT NULL,
     subject TEXT NOT NULL,
     event_type TEXT NOT NULL,
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS public.email_logs (
 -- 10. PASSWORD RESET TOKENS TABLE
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID REFERENCES public.employees(id) ON DELETE CASCADE NOT NULL,
     token_hash TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,

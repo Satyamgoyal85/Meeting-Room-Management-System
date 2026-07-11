@@ -162,25 +162,6 @@ export default function AdminEmployeesTab({
     setImportSummary(null);
   };
 
-  const handleDownloadTemplate = async (format: 'xlsx' | 'csv') => {
-    try {
-      const XLSX = await import('xlsx');
-      const sampleData = [
-        { 'Name': 'John Doe', 'Employee ID': '1025', 'Username': 'johndoe', 'Department': 'Sales', 'Role': 'Employee' },
-        { 'Name': 'Jane Smith', 'Employee ID': '1026', 'Username': 'janesmith', 'Department': 'Marketing', 'Role': 'Admin' },
-      ];
-      const worksheet = XLSX.utils.json_to_sheet(sampleData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Employees');
-      if (format === 'csv') {
-        XLSX.writeFile(workbook, 'dhanuka_employee_import_template.csv');
-      } else {
-        XLSX.writeFile(workbook, 'dhanuka_employee_import_template.xlsx');
-      }
-    } catch (err: any) {
-      setImportError(`Failed to generate template: ${err.message}`);
-    }
-  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1421,28 +1402,10 @@ export default function AdminEmployeesTab({
 
                 {/* Expected Columns Box */}
                 <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-5 space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div>
                     <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                       Expected Columns & Rules
                     </h4>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadTemplate('xlsx')}
-                        className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold flex items-center space-x-1.5 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Sample (.xlsx)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadTemplate('csv')}
-                        className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-xs font-bold flex items-center space-x-1.5 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Sample (.csv)</span>
-                      </button>
-                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
