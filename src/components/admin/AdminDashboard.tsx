@@ -9,7 +9,6 @@ import AdminReportsTab from '@/components/admin/AdminReportsTab';
 import AdminOverviewTab from '@/components/admin/AdminOverviewTab';
 import AdminEmployeesTab from '@/components/admin/AdminEmployeesTab';
 import AdminCalendarTab from '@/components/admin/AdminCalendarTab';
-import AdminSmtpTab from '@/components/admin/AdminSmtpTab';
 import { 
   Layers, 
   BarChart3, 
@@ -28,9 +27,9 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const currentTab = (searchParams.get('tab') as 'overview' | 'bookings' | 'rooms' | 'amenities' | 'employees' | 'reports' | 'calendar' | 'smtp') || 'overview';
+  const currentTab = (searchParams.get('tab') as 'overview' | 'bookings' | 'rooms' | 'amenities' | 'employees' | 'reports' | 'calendar') || 'overview';
 
-  const switchTab = (tab: 'overview' | 'bookings' | 'rooms' | 'amenities' | 'employees' | 'reports' | 'calendar' | 'smtp') => {
+  const switchTab = (tab: 'overview' | 'bookings' | 'rooms' | 'amenities' | 'employees' | 'reports' | 'calendar') => {
     router.push(`/admin?tab=${tab}`);
   };
 
@@ -182,9 +181,6 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
           />
         )}
 
-        {currentTab === 'smtp' && (
-          <AdminSmtpTab />
-        )}
       </div>
 
     </div>

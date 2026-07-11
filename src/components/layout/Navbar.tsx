@@ -196,7 +196,7 @@ export default function Navbar({ session }: NavbarProps) {
               {isAdmin && (
                 <>
                   <Link
-                    href="/admin?tab=smtp"
+                    href="/admin/email-settings"
                     onClick={() => setIsProfileDropdownOpen(false)}
                     className="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 flex items-center transition-colors"
                   >
@@ -368,7 +368,7 @@ export default function Navbar({ session }: NavbarProps) {
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
             {isAdmin && (
               <Link
-                href="/admin?tab=smtp"
+                href="/admin/email-settings"
                 onClick={closeMobileMenu}
                 className="w-full py-3 px-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 text-sm font-bold flex items-center space-x-3 transition-all"
               >

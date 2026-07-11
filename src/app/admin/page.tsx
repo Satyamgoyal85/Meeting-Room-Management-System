@@ -7,7 +7,11 @@ import AdminDashboard from '@/components/admin/AdminDashboard';
 
 export const revalidate = 0; // Always fetch fresh master admin records
 
-export default async function AdminDashboardPage() {
+interface AdminPageProps {
+  searchParams?: { tab?: string };
+}
+
+export default async function AdminDashboardPage({ searchParams }: AdminPageProps) {
   const session = await getSession();
 
   if (!session) {
@@ -16,6 +20,10 @@ export default async function AdminDashboardPage() {
 
   if (session.role !== 'admin') {
     redirect('/dashboard');
+  }
+
+  if (searchParams?.tab === 'smtp') {
+    redirect('/admin/email-settings');
   }
 
   const adminData = await getAdminDashboardData();
