@@ -15,9 +15,19 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dhanuka Agritech Ltd. | Meeting Room Management System (GHO Branch)",
-  description: "Real-time meeting room reservation and management portal for Dhanuka Agritech Ltd., GHO Branch.",
+  title: "Dhanuka Meeting Room System | Dhanuka Agritech Ltd. (GHO Branch)",
+  description: "Enterprise meeting room reservation and management portal for Dhanuka Agritech Ltd., GHO Branch.",
   keywords: ["Dhanuka Agritech", "Meeting Rooms", "Reservation", "GHO Branch", "Agri-Tech"],
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/icon.png', type: 'image/png', sizes: '32x32' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: [
+      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({
