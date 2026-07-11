@@ -16,7 +16,8 @@ import {
   CalendarDays,
   Sparkles,
   Building2,
-  Users
+  Users,
+  LayoutList
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -79,7 +80,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
               : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
           }`}
         >
-          <Calendar className="w-4 h-4" />
+          <LayoutList className="w-4 h-4" />
           <span>All Bookings & Oversight ({initialData.bookings.length})</span>
         </button>
 

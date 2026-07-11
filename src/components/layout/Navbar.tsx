@@ -9,7 +9,7 @@ import {
   Building2, 
   LogOut, 
   User, 
-  ShieldAlert, 
+  LayoutList, 
   Calendar, 
   CalendarDays,
   Layers, 
@@ -135,7 +135,7 @@ export default function Navbar({ session }: NavbarProps) {
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <LayoutList className="w-3.5 h-3.5" />
                   <span>All Bookings</span>
                 </Link>
                 <Link
@@ -331,7 +331,7 @@ export default function Navbar({ session }: NavbarProps) {
                       : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <ShieldAlert className="w-5 h-5 text-purple-600" />
+                  <LayoutList className="w-5 h-5 text-purple-600" />
                   <span>All Bookings & Oversight</span>
                 </Link>
 
