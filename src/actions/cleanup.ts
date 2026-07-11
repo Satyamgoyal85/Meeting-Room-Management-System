@@ -277,9 +277,19 @@ export async function getCleanupReportsDataAction(): Promise<{
 
   if (!isPlaceholderUrl) {
     const supabase = createAdminClient();
+    const cutoff7DaysAgoIso = subDays(new Date(), 7).toISOString();
     
-    // Fetch usage stats
-    const { data: uData, error: uErr } = await (supabase.from('usage_stats') as any).select('*').order('period_start', { ascending: false });
+    // Fetch all 3 report tables in parallel (`usage_stats`, recent `bookings`, and `cleanup_job_logs`)
+    const [
+      { data: uData, error: uErr },
+      { data: bData, error: bErr },
+      { data: lData, error: lErr }
+    ] = await Promise.all([
+      (supabase.from('usage_stats') as any).select('*').order('period_start', { ascending: false }).limit(100),
+      (supabase.from('bookings') as any).select('*').gte('end_time', cutoff7DaysAgoIso).order('start_time', { ascending: false }),
+      (supabase.from('cleanup_job_logs') as any).select('*').order('started_at', { ascending: false }).limit(10)
+    ]);
+
     if (!uErr && uData) {
       usageStats = uData as UsageStat[];
     } else {
@@ -287,12 +297,6 @@ export async function getCleanupReportsDataAction(): Promise<{
       usageStats = [...getStoreUsageStats()].sort((a, b) => b.period_start.localeCompare(a.period_start));
     }
 
-    // Fetch recent bookings (last 7 days or future)
-    const cutoff7DaysAgoIso = subDays(new Date(), 7).toISOString();
-    const { data: bData, error: bErr } = await (supabase.from('bookings') as any)
-      .select('*')
-      .gte('end_time', cutoff7DaysAgoIso)
-      .order('start_time', { ascending: false });
     if (!bErr && bData) {
       recentBookings = bData as Booking[];
     } else {
@@ -303,11 +307,6 @@ export async function getCleanupReportsDataAction(): Promise<{
         .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
     }
 
-    // Fetch cleanup job logs
-    const { data: lData, error: lErr } = await (supabase.from('cleanup_job_logs') as any)
-      .select('*')
-      .order('started_at', { ascending: false })
-      .limit(10);
     if (!lErr && lData) {
       jobLogs = lData as CleanupJobLog[];
     } else {

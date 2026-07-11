@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { logoutAction, AuthSession } from '@/actions/auth';
 import { 
@@ -49,9 +50,12 @@ export default function Navbar({ session }: NavbarProps) {
             onClick={closeMobileMenu}
             className="flex items-center space-x-3.5 group"
           >
-            <img 
+            <Image 
               src="/logo.png" 
-              alt="Dhanuka Agritech Ltd. Logo" 
+              alt="Dhanuka Agritech Ltd. Logo"
+              width={160}
+              height={44}
+              priority
               className="h-8 sm:h-11 w-auto object-contain shrink-0 transition-transform group-hover:scale-105" 
             />
             <div>

@@ -12,6 +12,7 @@
 -- or an admin to read invitee rows.
 -- ============================================================
 DROP POLICY IF EXISTS "Anyone can read booking invitees" ON public.booking_invitees;
+DROP POLICY IF EXISTS "Participants and admins can read booking invitees" ON public.booking_invitees;
 
 CREATE POLICY "Participants and admins can read booking invitees"
   ON public.booking_invitees
@@ -58,8 +59,9 @@ DROP POLICY IF EXISTS "Admins can delete audit log" ON public.audit_log;
 -- only safe fields, and restrict direct table SELECT.
 -- ============================================================
 
--- Step 1: Drop existing permissive policy
+-- Step 1: Drop existing permissive or previous policies
 DROP POLICY IF EXISTS "Anyone can read employees" ON public.employees;
+DROP POLICY IF EXISTS "Authenticated users can read safe employee fields" ON public.employees;
 
 -- Step 2: Allow employees to read safe fields for all active employees
 -- (needed for autocomplete, directory listing, invitee search)
@@ -105,6 +107,20 @@ ALTER TABLE public.smtp_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.email_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- FIX 5: Performance & RLS Lookup Indexes
+-- Ensure fast execution of RLS functions (is_admin, current_employee_id)
+-- and high-speed joins/filters across large tables during page loads.
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_employees_auth_user_active ON public.employees(auth_user_id, is_active, role);
+CREATE INDEX IF NOT EXISTS idx_employees_id_active ON public.employees(id, is_active);
+CREATE INDEX IF NOT EXISTS idx_bookings_room_time_status ON public.bookings(room_id, start_time, end_time) WHERE status = 'confirmed';
+CREATE INDEX IF NOT EXISTS idx_bookings_employee_time ON public.bookings(employee_id, start_time DESC);
+CREATE INDEX IF NOT EXISTS idx_booking_invitees_booking ON public.booking_invitees(booking_id);
+CREATE INDEX IF NOT EXISTS idx_booking_invitees_employee ON public.booking_invitees(employee_id);
+CREATE INDEX IF NOT EXISTS idx_usage_stats_period ON public.usage_stats(period_start DESC, period_type);
+CREATE INDEX IF NOT EXISTS idx_cleanup_job_logs_started_at ON public.cleanup_job_logs(started_at DESC);
 
 -- ============================================================
 -- VERIFICATION QUERIES: Run these to confirm policy status

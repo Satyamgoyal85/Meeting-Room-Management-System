@@ -528,18 +528,22 @@ export async function getMyBookingsAction(): Promise<{
 
   if (!isPlaceholderUrl) {
     try {
-      const { data: rData, error: rErr } = await (supabase.from('rooms') as any).select('*');
+      const [
+        { data: rData, error: rErr },
+        { data: dData, error: dErr },
+        { data: eData, error: eErr },
+        { data: bData, error: bErr }
+      ] = await Promise.all([
+        (supabase.from('rooms') as any).select('*'),
+        (supabase.from('departments') as any).select('*'),
+        (supabase.from('employees') as any).select('*'),
+        supabase.from('bookings').select('*').eq('employee_id', currentUserId).order('start_time', { ascending: false })
+      ]);
+
       if (!rErr && rData) rooms = rData as Room[]; else rooms = getStoreRooms();
-      const { data: dData, error: dErr } = await (supabase.from('departments') as any).select('*');
       if (!dErr && dData) departments = dData as Department[]; else departments = getStoreDepartments();
-      const { data: eData, error: eErr } = await (supabase.from('employees') as any).select('*');
       if (!eErr && eData) employees = eData as Employee[]; else employees = getStoreEmployees();
 
-      const { data: bData, error: bErr } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('employee_id', currentUserId)
-        .order('start_time', { ascending: false });
       if (!bErr && bData) {
         allBookings = bData as Booking[];
       } else {
@@ -648,29 +652,30 @@ export async function getEmployeeCalendarDataAction(): Promise<{
 
   if (!isPlaceholderUrl) {
     try {
-      const { data: rData, error: rErr } = await (supabase.from('rooms') as any).select('*');
+      const [
+        { data: rData, error: rErr },
+        { data: dData, error: dErr },
+        { data: eData, error: eErr },
+        { data: bData, error: bErr },
+        { data: invData, error: invErr }
+      ] = await Promise.all([
+        (supabase.from('rooms') as any).select('*'),
+        (supabase.from('departments') as any).select('*'),
+        (supabase.from('employees') as any).select('*'),
+        supabase.from('bookings').select('*').eq('employee_id', currentUserId),
+        (supabase.from('booking_invitees') as any).select('booking_id').eq('employee_id', currentUserId)
+      ]);
+
       if (!rErr && rData) rooms = rData as Room[]; else rooms = getStoreRooms();
-      const { data: dData, error: dErr } = await (supabase.from('departments') as any).select('*');
       if (!dErr && dData) departments = dData as Department[]; else departments = getStoreDepartments();
-      const { data: eData, error: eErr } = await (supabase.from('employees') as any).select('*');
       if (!eErr && eData) employees = eData as Employee[]; else employees = getStoreEmployees();
 
-      // Fetch own bookings
-      const { data: bData, error: bErr } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('employee_id', currentUserId);
       if (!bErr && bData) {
         ownBookings = bData as Booking[];
       } else {
         if (bErr) console.warn('[Supabase fallback] Error loading cloud own bookings:', bErr.message || bErr);
         ownBookings = getStoreBookings().filter(b => b.employee_id === currentUserId);
       }
-
-      // Fetch invited bookings
-      const { data: invData, error: invErr } = await (supabase.from('booking_invitees') as any)
-        .select('booking_id')
-        .eq('employee_id', currentUserId);
       
       if (!invErr && invData && invData.length > 0) {
         const invIds = invData.map((i: any) => i.booking_id);

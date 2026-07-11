@@ -76,63 +76,66 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
   if (!isPlaceholderUrl) {
     const supabase = createAdminClient();
-    const { data: rData, error: rErr } = await (supabase.from('rooms') as any).select('*').order('capacity').order('name');
+    // Fetch all 6 core admin tables and reports data in a single parallel roundtrip
+    const [
+      { data: rData, error: rErr },
+      { data: dData, error: dErr },
+      { data: bData, error: bErr },
+      { data: eData, error: eErr },
+      { data: aData, error: aErr },
+      cleanupReportsResult
+    ] = await Promise.all([
+      (supabase.from('rooms') as any).select('*').order('capacity').order('name'),
+      (supabase.from('departments') as any).select('*').order('name'),
+      (supabase.from('bookings') as any).select('*').order('start_time', { ascending: false }),
+      (supabase.from('employees') as any).select('*'),
+      (supabase.from('amenities') as any).select('*').order('name'),
+      getCleanupReportsDataAction().catch(() => ({ usageStats: [], recentBookings: [], jobLogs: [] }))
+    ]);
+
     if (rErr) {
       console.warn('[Supabase fallback] Query error [rooms]:', rErr.message || rErr);
       rooms = sortRoomsByCapacityAndName(getStoreRooms());
-    } else if (rData) {
-      rooms = sortRoomsByCapacityAndName(rData as Room[]);
     } else {
-      rooms = sortRoomsByCapacityAndName(getStoreRooms());
+      rooms = sortRoomsByCapacityAndName((rData || []) as Room[]);
     }
     
-    const { data: dData, error: dErr } = await (supabase.from('departments') as any).select('*').order('name');
     if (dErr) {
       console.warn('[Supabase fallback] Query error [departments]:', dErr.message || dErr);
       departments = getStoreDepartments();
-    } else if (dData) {
-      departments = dData as Department[];
     } else {
-      departments = getStoreDepartments();
+      departments = (dData || []) as Department[];
     }
 
-    const { data: bData, error: bErr } = await (supabase.from('bookings') as any)
-      .select('*')
-      .order('start_time', { ascending: false });
     if (bErr) {
       console.warn('[Supabase fallback] Query error [bookings]:', bErr.message || bErr);
       allBookings = [...getStoreBookings()].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-    } else if (bData) {
-      allBookings = bData as Booking[];
     } else {
-      allBookings = [...getStoreBookings()].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+      allBookings = (bData || []) as Booking[];
     }
 
-    const { data: eData, error: eErr } = await (supabase.from('employees') as any).select('*');
     if (eErr) {
       console.warn('[Supabase fallback] Query error [employees]:', eErr.message || eErr);
       employees = getStoreEmployees();
-    } else if (eData) {
-      employees = eData as Employee[];
     } else {
-      employees = getStoreEmployees();
+      employees = (eData || []) as Employee[];
     }
 
-    const { data: aData, error: aErr } = await (supabase.from('amenities') as any).select('*').order('name');
     if (aErr) {
       console.warn('[Supabase fallback] Query error [amenities]:', aErr.message || aErr);
       amenities = getStoreAmenities();
-    } else if (aData) {
-      amenities = aData as Amenity[];
     } else {
-      amenities = getStoreAmenities();
+      amenities = (aData || []) as Amenity[];
     }
+
+    var cleanupReports = cleanupReportsResult;
   } else {
     rooms = sortRoomsByCapacityAndName(getStoreRooms());
     departments = getStoreDepartments();
     allBookings = [...getStoreBookings()].sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
     employees = getStoreEmployees();
     amenities = getStoreAmenities();
+    var cleanupReports = await getCleanupReportsDataAction().catch(() => ({ usageStats: [], recentBookings: [], jobLogs: [] }));
   }
 
   // Enrich bookings with room, dept, and employee details
@@ -156,12 +159,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const confirmedBookings = enrichedBookings.filter(b => b.status === 'confirmed');
   const todayBookingsCount = confirmedBookings.filter(b => isToday(new Date(b.start_time))).length;
 
-  // Fetch historical usage stats and cleanup job logs
-  const cleanupReports = await getCleanupReportsDataAction().catch(() => ({
-    usageStats: [],
-    recentBookings: [],
-    jobLogs: [],
-  }));
   const { usageStats, jobLogs: cleanupJobLogs } = cleanupReports;
 
   // Most booked room across both historical usage stats and recent live bookings

@@ -263,22 +263,31 @@ ALTER TABLE public.email_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Departments Policies
+DROP POLICY IF EXISTS "Anyone can read departments" ON public.departments;
 CREATE POLICY "Anyone can read departments" ON public.departments FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can manage departments" ON public.departments;
 CREATE POLICY "Admins can manage departments" ON public.departments FOR ALL USING (public.is_admin());
 
 -- Amenities Policies
+DROP POLICY IF EXISTS "Anyone can read amenities" ON public.amenities;
 CREATE POLICY "Anyone can read amenities" ON public.amenities FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can manage amenities" ON public.amenities;
 CREATE POLICY "Admins can manage amenities" ON public.amenities FOR ALL USING (public.is_admin());
 
 -- Employees Policies
+DROP POLICY IF EXISTS "Anyone can read employees" ON public.employees;
 CREATE POLICY "Anyone can read employees" ON public.employees FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can manage employees" ON public.employees;
 CREATE POLICY "Admins can manage employees" ON public.employees FOR ALL USING (public.is_admin());
 
 -- Rooms Policies
+DROP POLICY IF EXISTS "Anyone can read rooms" ON public.rooms;
 CREATE POLICY "Anyone can read rooms" ON public.rooms FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can manage rooms" ON public.rooms;
 CREATE POLICY "Admins can manage rooms" ON public.rooms FOR ALL USING (public.is_admin());
 
 -- Bookings Policies (Restricted direct table access so regular users cannot read unmasked agendas)
+DROP POLICY IF EXISTS "Employees can read own or invited bookings on bookings table" ON public.bookings;
 CREATE POLICY "Employees can read own or invited bookings on bookings table" ON public.bookings
     FOR SELECT USING (
         employee_id = public.current_employee_id()
@@ -288,18 +297,23 @@ CREATE POLICY "Employees can read own or invited bookings on bookings table" ON 
             WHERE bi.booking_id = id AND bi.employee_id = public.current_employee_id()
         )
     );
+DROP POLICY IF EXISTS "Employees can create bookings for themselves" ON public.bookings;
 CREATE POLICY "Employees can create bookings for themselves" ON public.bookings
     FOR INSERT WITH CHECK (
         (employee_id = public.current_employee_id() OR public.is_admin())
     );
+DROP POLICY IF EXISTS "Employees can update/cancel own confirmed bookings" ON public.bookings;
 CREATE POLICY "Employees can update/cancel own confirmed bookings" ON public.bookings
     FOR UPDATE USING (
         (employee_id = public.current_employee_id() AND status = 'confirmed') OR public.is_admin()
     );
+DROP POLICY IF EXISTS "Admins bypass all on bookings" ON public.bookings;
 CREATE POLICY "Admins bypass all on bookings" ON public.bookings FOR ALL USING (public.is_admin());
 
 -- Booking Invitees Policies
+DROP POLICY IF EXISTS "Anyone can read booking invitees" ON public.booking_invitees;
 CREATE POLICY "Anyone can read booking invitees" ON public.booking_invitees FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Booking owners or admins can manage invitees" ON public.booking_invitees;
 CREATE POLICY "Booking owners or admins can manage invitees" ON public.booking_invitees
     FOR ALL USING (
         public.is_admin() OR EXISTS (
@@ -309,16 +323,21 @@ CREATE POLICY "Booking owners or admins can manage invitees" ON public.booking_i
     );
 
 -- SMTP Settings Policies (Admin strictly only)
+DROP POLICY IF EXISTS "Only admins can manage smtp_settings" ON public.smtp_settings;
 CREATE POLICY "Only admins can manage smtp_settings" ON public.smtp_settings FOR ALL USING (public.is_admin());
 
 -- Email Logs Policies (Admin strictly only)
+DROP POLICY IF EXISTS "Only admins can manage email_logs" ON public.email_logs;
 CREATE POLICY "Only admins can manage email_logs" ON public.email_logs FOR ALL USING (public.is_admin());
 
 -- Password Reset Tokens Policies (Admin strictly only)
+DROP POLICY IF EXISTS "Only admins can manage password_reset_tokens" ON public.password_reset_tokens;
 CREATE POLICY "Only admins can manage password_reset_tokens" ON public.password_reset_tokens FOR ALL USING (public.is_admin());
 
 -- Audit Log Policies
+DROP POLICY IF EXISTS "Admins can read audit log" ON public.audit_log;
 CREATE POLICY "Admins can read audit log" ON public.audit_log FOR SELECT USING (public.is_admin());
+DROP POLICY IF EXISTS "Authenticated users can insert audit log" ON public.audit_log;
 CREATE POLICY "Authenticated users can insert audit log" ON public.audit_log FOR INSERT WITH CHECK (true);
 
 -- ==========================================

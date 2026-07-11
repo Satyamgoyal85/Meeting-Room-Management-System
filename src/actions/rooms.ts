@@ -38,34 +38,22 @@ export async function getDashboardData(dateStr?: string): Promise<DashboardData>
 
   if (!isPlaceholderUrl) {
     const supabase = createAdminClient();
-    // Fetch active rooms
-    const { data: roomsData, error: roomsError } = await supabase
-      .from('rooms')
-      .select('*')
-      .eq('is_active', true)
-      .order('name');
+    // Fetch all 4 tables in parallel (rooms, departments, amenities, and bookings for date range)
+    const [
+      { data: roomsData, error: roomsError },
+      { data: deptData, error: deptError },
+      { data: amenitiesData, error: aError },
+      { data: bookingsData, error: bError }
+    ] = await Promise.all([
+      supabase.from('rooms').select('*').eq('is_active', true).order('name'),
+      supabase.from('departments').select('*').order('name'),
+      (supabase.from('amenities') as any).select('*').order('name'),
+      supabase.from('v_bookings_public').select('*').eq('status', 'confirmed').gte('end_time', startOfDayIso).lte('start_time', endOfDayIso)
+    ]);
+
     if (roomsError) console.warn('[Supabase fallback] Query error [rooms in getDashboardData]:', roomsError.message || roomsError);
-
-    // Fetch departments
-    const { data: deptData, error: deptError } = await supabase
-      .from('departments')
-      .select('*')
-      .order('name');
     if (deptError) console.warn('[Supabase fallback] Query error [departments in getDashboardData]:', deptError.message || deptError);
-
-    // Fetch amenities
-    const { data: amenitiesData, error: aError } = await (supabase.from('amenities') as any)
-      .select('*')
-      .order('name');
     if (aError) console.warn('[Supabase fallback] Query error [amenities in getDashboardData]:', aError.message || aError);
-
-    // Fetch bookings for target date range from v_bookings_public (masks agenda automatically)
-    const { data: bookingsData, error: bError } = await supabase
-      .from('v_bookings_public')
-      .select('*')
-      .eq('status', 'confirmed')
-      .gte('end_time', startOfDayIso)
-      .lte('start_time', endOfDayIso);
     if (bError) console.warn('[Supabase fallback] Query error [bookings in getDashboardData]:', bError.message || bError);
 
     const hasQueryErrors = Boolean(roomsError || deptError || aError || bError || !roomsData || !deptData || !amenitiesData || !bookingsData);

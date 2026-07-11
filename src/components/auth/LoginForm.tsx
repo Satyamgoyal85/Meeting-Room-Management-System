@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useTransition } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { loginAction } from '@/actions/auth';
 import {
@@ -88,9 +89,12 @@ export default function LoginForm() {
 
         {/* Header */}
         <div className="text-center mb-8 relative z-10">
-          <img
+          <Image
             src="/logo.png"
             alt="Dhanuka Agritech Ltd. Logo"
+            width={180}
+            height={48}
+            priority
             className="h-12 w-auto mx-auto object-contain mb-4"
           />
 

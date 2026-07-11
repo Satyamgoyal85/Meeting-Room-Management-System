@@ -1,5 +1,6 @@
 'use server';
 
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -405,7 +406,7 @@ export async function logoutAction() {
 /**
  * Helper to get current authenticated user session from cookies or Supabase.
  */
-export async function getSession(): Promise<AuthSession | null> {
+export const getSession = cache(async function getSession(): Promise<AuthSession | null> {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
 
@@ -493,7 +494,7 @@ export async function getSession(): Promise<AuthSession | null> {
   }
 
   return null;
-}
+});
 
 /**
  * Helper to get the pending reset session from the pending_reset cookie.

@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { verifyResetToken } from '@/actions/auth';
 import TokenResetForm from '@/components/auth/TokenResetForm';
 import { ShieldCheck } from 'lucide-react';
@@ -20,9 +21,12 @@ export default async function ResetTokenPage({ params }: ResetTokenPageProps) {
       {/* Top Header / Branding */}
       <div className="max-w-7xl w-full mx-auto flex items-center justify-between relative z-10">
         <div className="flex items-center space-x-3.5">
-          <img
+          <Image
             src="/logo.png"
             alt="Dhanuka Agritech Ltd. Logo"
+            width={160}
+            height={44}
+            priority
             className="h-8 sm:h-11 w-auto object-contain shrink-0 bg-white px-2 py-1 rounded-xl shadow-md"
           />
           <div>
