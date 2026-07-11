@@ -686,7 +686,11 @@ export async function createEmployeeAction(formData: FormData) {
     created_at: new Date().toISOString(),
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null) ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+    'http://localhost:3000';
   sendNotificationEmail({
     to: email,
     subject: '[Dhanuka Meeting Rooms] Welcome to Dhanuka Meeting Portal',
@@ -1251,6 +1255,8 @@ export async function adminResetPasswordAction(employeeInternalIdOrFormData: str
   // ── Build the reset URL (contains the raw token — valid for 24 hours) ───
   const appBaseUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null) ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
     (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000');
   const resetUrl = `${appBaseUrl}/reset-password/token/${rawToken}`;
 
