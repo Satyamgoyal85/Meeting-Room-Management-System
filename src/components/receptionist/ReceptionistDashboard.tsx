@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminDashboardData } from '@/actions/admin';
 import AdminCalendarTab from '@/components/admin/AdminCalendarTab';
 import AdminBookingsTab from '@/components/admin/AdminBookingsTab';
-import { CalendarDays, LayoutList, ShieldCheck } from 'lucide-react';
+import { CalendarDays, LayoutList } from 'lucide-react';
 
 interface ReceptionistDashboardProps {
   initialData: AdminDashboardData;
@@ -22,28 +22,9 @@ export default function ReceptionistDashboard({ initialData }: ReceptionistDashb
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-blue-800/40">
-        <div>
-          <div className="flex items-center space-x-2 text-blue-300 text-xs font-bold uppercase tracking-wider mb-1">
-            <ShieldCheck className="w-4 h-4 text-blue-400" />
-            <span>Reception Desk Front Office</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Receptionist Control Portal
-          </h1>
-          <p className="text-xs sm:text-sm text-blue-200/80 mt-1 max-w-xl">
-            Manage schedule oversight and book rooms on behalf of Dhanuka executives and departments.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/10 self-start sm:self-center">
-          <div className="text-right">
-            <span className="text-[10px] uppercase font-bold text-blue-300 block">Total Active Bookings</span>
-            <span className="text-lg font-black text-white">{initialData.bookings.length}</span>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-6 animate-in fade-in duration-300">
+
+      <h1 className="text-xl font-bold text-slate-900 dark:text-white">Receptionist Dashboard</h1>
 
       {/* Tab Switcher Navigation */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-4">
