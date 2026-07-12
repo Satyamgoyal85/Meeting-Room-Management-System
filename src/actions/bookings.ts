@@ -12,6 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { createIstIsoString, toIstDate, getIstDateStr, getIstTimeStr } from '@/lib/timezone';
 import { sendNotificationEmail } from '@/actions/smtp';
 import { getBookingConfirmedEmailHtml, getBookingCancelledEmailHtml } from '@/lib/email-templates';
+import { getCalendarPackageForRecipient } from '@/lib/calendar-generator';
 import { AdminBookingItem } from '@/actions/admin';
 
 export interface BookingResult {
@@ -346,23 +347,67 @@ export async function createBookingAction(formData: FormData): Promise<BookingRe
     const inviteeEmails = finalInviteeIds.map(id => allEmployees.find(e => e.id === id)?.email).filter(Boolean) as string[];
     const allRecipients = Array.from(new Set([organizerEmail, ...inviteeEmails].filter(Boolean) as string[]));
 
+    const organizerObj = {
+      name: organizer?.name || session.name || 'Employee',
+      email: organizerEmail,
+    };
+    const attendees = finalInviteeIds
+      .map(id => allEmployees.find(e => e.id === id))
+      .filter(Boolean)
+      .map(e => ({ name: e!.name, email: e!.email }));
+    const organizerDept = getStoreDepartments().find(d => d.id === organizer?.department_id)?.name || 'General';
+
     for (const b of bookedCountList) {
       const startMs = new Date(b.start_time).getTime();
       const endMs = new Date(b.end_time).getTime();
       const dateStr = getIstDateStr(startMs);
       const timeStr = `${getIstTimeStr(startMs)} – ${getIstTimeStr(endMs)}`;
       for (const recipientEmail of allRecipients) {
+        const recipientEmp = allEmployees.find(e => e.email === recipientEmail);
+        const canViewAgenda =
+          recipientEmail.toLowerCase() === organizerEmail.toLowerCase() ||
+          finalInviteeIds.includes(recipientEmp?.id || '') ||
+          recipientEmp?.role === 'admin' ||
+          session.role === 'admin';
+
+        const calPkg = getCalendarPackageForRecipient({
+          bookingId: b.id,
+          roomName: room.name,
+          roomFloor: room.floor,
+          startTime: startMs,
+          endTime: endMs,
+          organizer: organizerObj,
+          attendees,
+          departmentName: organizerDept,
+          agenda: b.agenda,
+          canViewAgenda,
+        });
+
         sendNotificationEmail({
           to: recipientEmail,
           subject: `[Dhanuka Meeting Rooms] Booking Confirmed — ${room.name}, ${dateStr}, ${timeStr}`,
           html: getBookingConfirmedEmailHtml({
-            bookerName: organizer?.name || session.name || 'Employee',
+            bookerName: recipientEmp?.name || organizer?.name || session.name || 'Employee',
             roomName: room.name,
             dateStr,
             timeStr,
-            purpose: b.agenda,
+            purpose: canViewAgenda ? b.agenda : undefined,
+            outlookWebUrl: calPkg.outlookWebUrl,
+            hasIcsAttachment: true,
           }),
           eventType: 'booking_confirmed',
+          attachments: [
+            {
+              filename: calPkg.filename,
+              content: calPkg.icsContent,
+              contentType: `text/calendar; charset=utf-8; method=${calPkg.method}`,
+            },
+          ],
+          icalEvent: {
+            filename: calPkg.filename,
+            method: calPkg.method,
+            content: calPkg.icsContent,
+          },
         }).catch(err => console.error('[SMTP Trigger Error - booking_confirmed]:', err));
       }
     }
@@ -479,19 +524,66 @@ export async function cancelBookingAction(formData: FormData): Promise<{ success
       const timeStr = `${getIstTimeStr(startMs)} – ${getIstTimeStr(endMs)}`;
       const cancelledByAdminName = session.role === 'admin' && booking.employee_id !== session.id ? (session.name || 'Admin') : undefined;
 
+      const allEmps = getStoreEmployees();
+      const allRooms = getStoreRooms();
+      const allDepts = getStoreDepartments();
+      const organizerEmp = allEmps.find(e => e.id === booking.employee_id || e.email === organizerEmail);
+      const organizerObj = {
+        name: organizerEmp?.name || 'Organizer',
+        email: organizerEmail,
+      };
+      const invs = getInviteesForBooking(bookingId);
+      const attendees = invs.map(inv => allEmps.find(e => e.id === inv.employee_id)).filter(Boolean).map(e => ({ name: e!.name, email: e!.email }));
+      const organizerDept = allDepts.find(d => d.id === organizerEmp?.department_id)?.name || 'General';
+
       for (const recipientEmail of allRecipients) {
+        const recipientEmp = allEmps.find(e => e.email === recipientEmail);
+        const canViewAgenda =
+          recipientEmail.toLowerCase() === organizerEmail.toLowerCase() ||
+          invs.some(inv => inv.employee_id === recipientEmp?.id) ||
+          recipientEmp?.role === 'admin' ||
+          session.role === 'admin';
+
+        const calPkg = getCalendarPackageForRecipient({
+          bookingId: booking.id || bookingId,
+          roomName,
+          roomFloor: allRooms.find(rm => rm.id === booking.room_id)?.floor,
+          startTime: startMs,
+          endTime: endMs,
+          organizer: organizerObj,
+          attendees,
+          departmentName: organizerDept,
+          agenda: booking.agenda,
+          canViewAgenda,
+          isCancellation: true,
+          cancellationReason: cancelReason,
+        });
+
         sendNotificationEmail({
           to: recipientEmail,
           subject: `[Dhanuka Meeting Rooms] Booking Cancelled — ${roomName}, ${dateStr}, ${timeStr}`,
           html: getBookingCancelledEmailHtml({
-            bookerName: session.name || 'Employee',
+            bookerName: recipientEmp?.name || session.name || 'Employee',
             roomName,
             dateStr,
             timeStr,
             cancelledByAdminName,
             reason: cancelReason,
+            hasIcsAttachment: true,
           }),
           eventType: 'booking_cancelled',
+          attachments: [
+            {
+              filename: calPkg.filename,
+              content: calPkg.icsContent,
+              contentType: `text/calendar; charset=utf-8; method=${calPkg.method}`,
+            },
+          ],
+          icalEvent: {
+            filename: calPkg.filename,
+            method: calPkg.method,
+            content: calPkg.icsContent,
+          },
         }).catch(err => console.error('[SMTP Trigger Error - booking_cancelled]:', err));
       }
     }

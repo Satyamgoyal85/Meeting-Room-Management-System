@@ -122,6 +122,8 @@ export function getBookingConfirmedEmailHtml(data: {
   dateStr: string;
   timeStr: string;
   purpose?: string;
+  outlookWebUrl?: string;
+  hasIcsAttachment?: boolean;
 }): string {
   return wrapDhanukaEmailTemplate(
     'Meeting Room Booking Confirmed',
@@ -147,6 +149,61 @@ export function getBookingConfirmedEmailHtml(data: {
          <span class="card-value">${data.purpose}</span>
        </div>` : ''}
      </div>
+     ${data.outlookWebUrl ? `
+     <div style="text-align: center; margin: 24px 0 16px;">
+       <a href="${data.outlookWebUrl}" target="_blank" rel="noopener noreferrer" class="btn" style="background-color: #0078d4; box-shadow: 0 4px 6px -1px rgba(0, 120, 212, 0.25);">
+         📅 Add to Outlook Calendar (Web)
+       </a>
+     </div>
+     <p style="font-size: 13px; color: #64748b; text-align: center; margin-top: 8px;">
+       💡 <strong>Note:</strong> An <strong>invite.ics</strong> calendar file is also attached to this email. You can click or open it in your desktop Outlook, Apple Calendar, or Google Calendar to add the meeting directly.
+     </p>` : ''}
+     <p style="font-size: 13px; color: #64748b;">Please ensure the room is left clean and turned off after your scheduled meeting ends.</p>`
+  );
+}
+
+export function getBookingUpdatedEmailHtml(data: {
+  bookerName: string;
+  roomName: string;
+  dateStr: string;
+  timeStr: string;
+  purpose?: string;
+  outlookWebUrl?: string;
+  hasIcsAttachment?: boolean;
+}): string {
+  return wrapDhanukaEmailTemplate(
+    'Meeting Room Booking Updated',
+    `<h2 style="margin-top: 0; color: #0284c7; font-size: 18px;">🔄 Booking Updated</h2>
+     <p>Hello ${data.bookerName},</p>
+     <p>Your meeting room reservation details have been updated on the Dhanuka portal.</p>
+     <div class="card">
+       <div class="card-row">
+         <span class="card-label">Meeting Room</span>
+         <span class="card-value">${data.roomName}</span>
+       </div>
+       <div class="card-row">
+         <span class="card-label">Date</span>
+         <span class="card-value">${data.dateStr}</span>
+       </div>
+       <div class="card-row">
+         <span class="card-label">Time Slot</span>
+         <span class="card-value">${data.timeStr}</span>
+       </div>
+       ${data.purpose ? `
+       <div class="card-row">
+         <span class="card-label">Purpose / Subject</span>
+         <span class="card-value">${data.purpose}</span>
+       </div>` : ''}
+     </div>
+     ${data.outlookWebUrl ? `
+     <div style="text-align: center; margin: 24px 0 16px;">
+       <a href="${data.outlookWebUrl}" target="_blank" rel="noopener noreferrer" class="btn" style="background-color: #0078d4; box-shadow: 0 4px 6px -1px rgba(0, 120, 212, 0.25);">
+         📅 Update Outlook Calendar (Web)
+       </a>
+     </div>
+     <p style="font-size: 13px; color: #64748b; text-align: center; margin-top: 8px;">
+       💡 <strong>Note:</strong> An updated <strong>invite.ics</strong> calendar file is also attached to this email. Opening it will update the existing event on your calendar.
+     </p>` : ''}
      <p style="font-size: 13px; color: #64748b;">Please ensure the room is left clean and turned off after your scheduled meeting ends.</p>`
   );
 }
@@ -158,6 +215,7 @@ export function getBookingCancelledEmailHtml(data: {
   timeStr: string;
   reason?: string;
   cancelledByAdminName?: string;
+  hasIcsAttachment?: boolean;
 }): string {
   return wrapDhanukaEmailTemplate(
     'Meeting Room Booking Cancelled',
@@ -179,6 +237,10 @@ export function getBookingCancelledEmailHtml(data: {
          <span class="card-value" style="color: #dc2626;">${data.reason}</span>
        </div>` : ''}
      </div>
+     ${data.hasIcsAttachment ? `
+     <p style="font-size: 13px; color: #64748b; text-align: center; margin-top: 16px; background-color: #f1f5f9; padding: 12px; border-radius: 8px; border: 1px dashed #cbd5e1;">
+       💡 <strong>Note:</strong> A cancellation <strong>cancel.ics</strong> file is attached to this email. Opening it in your calendar app will automatically remove the cancelled meeting from your schedule.
+     </p>` : ''}
      <p style="font-size: 13px; color: #64748b;">If you have questions regarding this cancellation, please contact your administrative team.</p>`
   );
 }

@@ -287,11 +287,19 @@ export async function sendNotificationEmail({
   subject,
   html,
   eventType,
+  attachments,
+  icalEvent,
 }: {
   to?: string | null;
   subject: string;
   html: string;
   eventType: string;
+  attachments?: nodemailer.SendMailOptions['attachments'];
+  icalEvent?: {
+    filename?: string;
+    method?: string;
+    content: string | Buffer;
+  };
 }): Promise<{ success: boolean; error?: string }> {
   if (!to || !to.includes('@')) {
     return { success: false, error: 'No valid recipient email address provided' };
@@ -340,11 +348,17 @@ export async function sendNotificationEmail({
   }
 
   const transporter = nodemailer.createTransport(transportConfig);
-  const mailOptions = {
+  const mailOptions: nodemailer.SendMailOptions = {
     from: `"${settings.sender_name}" <${settings.sender_email}>`,
     to,
     subject,
     html,
+    attachments,
+    icalEvent: icalEvent ? {
+      filename: icalEvent.filename || 'invite.ics',
+      method: (icalEvent.method || 'request').toUpperCase(),
+      content: icalEvent.content,
+    } : undefined,
   };
 
   // Attempt send with 1 retry logic for transient failures
