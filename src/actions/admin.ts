@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/actions/auth';
 import { MOCK_DEPARTMENTS, MOCK_EMPLOYEES } from '@/lib/mock-data';
 import { getStoreBookings, getStoreRooms, getStoreAmenities, addMockRoom, updateMockRoom, deleteMockRoom, addMockAmenity, deleteMockAmenity, getStoreDepartments, getStoreEmployees, addMockEmployee, addMockEmployeesBatch, updateMockEmployee, deleteMockEmployee, addMockDepartment, deleteMockDepartment, addMockAuditLog, addMockResetToken, getBookingIdsForInvitee } from '@/lib/mock-store';
-import { Room, Department, Booking, Employee, Amenity, UsageStat, CleanupJobLog } from '@/lib/types';
+import { Room, Department, Booking, Employee, Amenity, UsageStat, CleanupJobLog, Role } from '@/lib/types';
 import { sortRoomsByCapacityAndName, sortEmployeesByHierarchy } from '@/lib/sorting';
 import { format, isToday } from 'date-fns';
 import { revalidatePath } from 'next/cache';
@@ -62,8 +62,8 @@ export interface AdminDashboardData {
  */
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const session = await getSession();
-  if (!session || session.role !== 'admin') {
-    throw new Error('Unauthorized: Admin access required.');
+  if (!session || (session.role !== 'admin' && session.role !== 'receptionist')) {
+    throw new Error('Unauthorized: Admin or Receptionist access required.');
   }
 
   const isPlaceholderUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || !process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -610,7 +610,7 @@ export async function createEmployeeAction(formData: FormData) {
   const email = formData.get('email')?.toString().trim().toLowerCase();
   const employeeId = formData.get('employeeId')?.toString().trim().toUpperCase();
   const departmentId = formData.get('departmentId')?.toString();
-  const role = (formData.get('role')?.toString() || 'employee') as 'employee' | 'admin';
+  const role = (formData.get('role')?.toString() || 'employee') as Role;
 
   if (!name || !email || !employeeId || !departmentId) {
     return { error: 'Name, Email, Employee ID, and Department are required.' };
@@ -709,7 +709,7 @@ export interface BulkImportEmployeeInput {
   numericId: string;
   username: string;
   departmentId: string;
-  role: 'employee' | 'admin';
+  role: Role;
 }
 
 export interface BulkImportResultItem {
@@ -874,7 +874,7 @@ export async function updateEmployeeAction(formData: FormData): Promise<{ succes
   const name = formData.get('name')?.toString().trim();
   const email = formData.get('email')?.toString().trim().toLowerCase();
   const departmentId = formData.get('departmentId')?.toString();
-  const role = (formData.get('role')?.toString() || 'employee') as 'employee' | 'admin';
+  const role = (formData.get('role')?.toString() || 'employee') as Role;
 
   if (!id || !name || !email || !departmentId) {
     return { error: 'Employee ID, Name, Email, and Department are required.' };

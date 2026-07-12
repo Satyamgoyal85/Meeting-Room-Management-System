@@ -35,6 +35,7 @@ export const MOCK_ROOMS: Room[] = [
 export const MOCK_EMPLOYEES: Employee[] = [
   // Admin & Operations
   { id: '33333333-3333-3333-3333-333333333301', auth_user_id: null, employee_id: 'ECN-0001', name: 'Rajesh Sharma', email: 'rajesh.sharma@dhanuka.com', initial_password: 'raje0001', department_id: '11111111-1111-1111-1111-111111111110', role: 'admin', is_active: true, must_reset_password: false, failed_login_attempts: 0, created_at: new Date().toISOString() },
+  { id: '33333333-3333-3333-3333-333333333332', auth_user_id: null, employee_id: 'ECN-9000', name: 'Reception Desk', email: 'reception@dhanuka.com', initial_password: 'rece9000', department_id: '11111111-1111-1111-1111-111111111110', role: 'receptionist', is_active: true, must_reset_password: true, failed_login_attempts: 0, created_at: new Date().toISOString() },
   { id: '33333333-3333-3333-3333-333333333330', auth_user_id: null, employee_id: 'ECN-0002', name: 'Meena Agarwal', email: 'meena.agarwal@dhanuka.com', initial_password: 'meen0002', department_id: '11111111-1111-1111-1111-111111111110', role: 'employee', is_active: true, must_reset_password: false, failed_login_attempts: 0, created_at: new Date().toISOString() },
   { id: '33333333-3333-3333-3333-333333333331', auth_user_id: null, employee_id: 'ECN-0003', name: 'Deepak Joshi', email: 'deepak.joshi@dhanuka.com', initial_password: 'deep0003', department_id: '11111111-1111-1111-1111-111111111110', role: 'employee', is_active: true, must_reset_password: false, failed_login_attempts: 0, created_at: new Date().toISOString() },
   // IT

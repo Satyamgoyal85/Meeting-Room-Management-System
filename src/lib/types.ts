@@ -3,7 +3,7 @@
 // Meeting Room Management System - Type Definitions
 // ==========================================
 
-export type Role = 'employee' | 'admin';
+export type Role = 'employee' | 'admin' | 'receptionist';
 export type BookingStatus = 'confirmed' | 'cancelled';
 export type InviteeStatus = 'invited';
 export type AuditActionType = 

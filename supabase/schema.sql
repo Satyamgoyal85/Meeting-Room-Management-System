@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS public.employees (
     employee_id TEXT UNIQUE NOT NULL, -- e.g., "DAL-1023", "DAL-0001"
     name TEXT NOT NULL,
     department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
-    role TEXT NOT NULL CHECK (role IN ('employee', 'admin')) DEFAULT 'employee',
+    role TEXT NOT NULL CHECK (role IN ('employee', 'admin', 'receptionist')) DEFAULT 'employee',
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -146,6 +146,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Check if currently logged in auth user is a Receptionist
+CREATE OR REPLACE FUNCTION public.is_receptionist()
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.employees
+        WHERE auth_user_id = auth.uid()
+          AND role = 'receptionist'
+          AND is_active = true
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Get current employee UUID from auth user
 CREATE OR REPLACE FUNCTION public.current_employee_id()
 RETURNS UUID AS $$
@@ -177,7 +190,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ==========================================
 -- VIEW FOR PUBLIC BOOKINGS (MASKS AGENDA FIELD)
 -- ==========================================
--- Non-admins only see agenda of their own bookings; others see "Private Meeting"
+-- Non-admins/non-receptionists only see agenda of their own bookings; others see "Private Meeting"
 CREATE OR REPLACE VIEW public.v_bookings_public AS
 SELECT 
     b.id,

@@ -87,7 +87,7 @@ export async function createBookingAction(formData: FormData): Promise<BookingRe
   let targetEmployeeId = session.id;
   let targetDepartmentId = session.department_id || '11111111-1111-1111-1111-111111111101';
 
-  if (session.role === 'admin' && bookForEmployeeId && bookForDepartmentId) {
+  if ((session.role === 'admin' || session.role === 'receptionist') && bookForEmployeeId && bookForDepartmentId) {
     targetEmployeeId = bookForEmployeeId;
     targetDepartmentId = bookForDepartmentId;
   }
@@ -122,7 +122,7 @@ export async function createBookingAction(formData: FormData): Promise<BookingRe
 
   // Check Department restriction
   if (room.restricted_to_department_id !== null && session.role !== 'admin') {
-    if (session.department_id !== room.restricted_to_department_id) {
+    if (targetDepartmentId !== room.restricted_to_department_id) {
       const restrictedDept = departments.find(d => d.id === room.restricted_to_department_id);
       return { error: `Access Denied: ${room.name} is restricted exclusively to ${restrictedDept?.name || 'designated'} department personnel.` };
     }
@@ -354,7 +354,7 @@ export async function createBookingAction(formData: FormData): Promise<BookingRe
     const attendees = finalInviteeIds
       .map(id => allEmployees.find(e => e.id === id))
       .filter(Boolean)
-      .map(e => ({ name: e!.name, email: e!.email }));
+      .map(e => ({ name: e!.name, email: e!.email || 'unknown@dhanuka.com' }));
     const organizerDept = getStoreDepartments().find(d => d.id === organizer?.department_id)?.name || 'General';
 
     for (const b of bookedCountList) {
@@ -466,6 +466,9 @@ export async function cancelBookingAction(formData: FormData): Promise<{ success
   if (!booking) return { error: 'Booking not found.' };
 
   if (booking.employee_id !== session.id && session.role !== 'admin') {
+    if (session.role === 'receptionist') {
+      return { error: 'Access Denied: Receptionists are not permitted to cancel bookings owned by other employees.' };
+    }
     return { error: 'Access Denied: You can only cancel your own bookings.' };
   }
 
@@ -533,7 +536,7 @@ export async function cancelBookingAction(formData: FormData): Promise<{ success
         email: organizerEmail,
       };
       const invs = getInviteesForBooking(bookingId);
-      const attendees = invs.map(inv => allEmps.find(e => e.id === inv.employee_id)).filter(Boolean).map(e => ({ name: e!.name, email: e!.email }));
+      const attendees = invs.map(inv => allEmps.find(e => e.id === inv.employee_id)).filter(Boolean).map(e => ({ name: e!.name, email: e!.email || 'unknown@dhanuka.com' }));
       const organizerDept = allDepts.find(d => d.id === organizerEmp?.department_id)?.name || 'General';
 
       for (const recipientEmail of allRecipients) {
@@ -542,7 +545,9 @@ export async function cancelBookingAction(formData: FormData): Promise<{ success
           recipientEmail.toLowerCase() === organizerEmail.toLowerCase() ||
           invs.some(inv => inv.employee_id === recipientEmp?.id) ||
           recipientEmp?.role === 'admin' ||
-          session.role === 'admin';
+          recipientEmp?.role === 'receptionist' ||
+          session.role === 'admin' ||
+          session.role === 'receptionist';
 
         const calPkg = getCalendarPackageForRecipient({
           bookingId: booking.id || bookingId,
@@ -872,7 +877,7 @@ export async function getActualServerIstTimeAction(): Promise<{
  */
 export async function getEmployeesForBookingAction(): Promise<EmployeeSearchItem[]> {
   const session = await getSession();
-  if (!session || session.role !== 'admin') {
+  if (!session || (session.role !== 'admin' && session.role !== 'receptionist')) {
     return [];
   }
 

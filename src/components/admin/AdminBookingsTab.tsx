@@ -27,12 +27,14 @@ interface AdminBookingsTabProps {
   bookings: AdminBookingItem[];
   departments: Department[];
   currentUserId: string;
+  userRole?: string;
 }
 
 export default function AdminBookingsTab({
   bookings,
   departments,
   currentUserId,
+  userRole = 'admin',
 }: AdminBookingsTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'cancelled'>('all');
@@ -193,7 +195,7 @@ export default function AdminBookingsTab({
                   {/* Unmasked Meeting Agenda */}
                   <div className="pt-1 text-xs">
                     <span className="font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider text-[10px] mr-1.5">
-                      [Admin Oversight Agenda]:
+                      {userRole === 'receptionist' ? '[Receptionist Agenda]:' : '[Admin Oversight Agenda]:'}
                     </span>
                     <span className="font-medium text-slate-800 dark:text-slate-200">
                       &quot;{booking.agenda}&quot;
@@ -208,20 +210,29 @@ export default function AdminBookingsTab({
                   )}
                 </div>
 
-                {/* Admin Override Action */}
+                {/* Admin / Receptionist Cancellation Action */}
                 {isConfirmed && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOverridingBooking(booking);
-                      setCancelReason('');
-                      setError(null);
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm whitespace-nowrap"
-                  >
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    <span>Override Cancel</span>
-                  </button>
+                  (userRole === 'receptionist' && booking.employee_id !== currentUserId) ? (
+                    <span 
+                      title="Receptionists cannot cancel bookings owned by other employees"
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-[11px] font-semibold border border-slate-200 dark:border-slate-700 cursor-not-allowed whitespace-nowrap"
+                    >
+                      Cannot Cancel
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOverridingBooking(booking);
+                        setCancelReason('');
+                        setError(null);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm whitespace-nowrap"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>{userRole === 'receptionist' ? 'Cancel Booking' : 'Override / Cancel'}</span>
+                    </button>
+                  )
                 )}
               </div>
             );
@@ -247,10 +258,14 @@ export default function AdminBookingsTab({
 
             <div className="text-center">
               <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
-                Admin Override Cancellation
+                {userRole === 'receptionist' ? 'Cancel Booking' : 'Admin Override Cancellation'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                You are exercising System Administrator authority to cancel <strong className="text-slate-800 dark:text-slate-200">{overridingBooking.booker_name}</strong>&apos;s booking for <strong className="text-purple-600 dark:text-purple-400">{overridingBooking.room_name}</strong>.
+                {userRole === 'receptionist' ? (
+                  <>You are cancelling <strong className="text-slate-800 dark:text-slate-200">{overridingBooking.booker_name}</strong>&apos;s booking for <strong className="text-blue-600 dark:text-blue-400">{overridingBooking.room_name}</strong>.</>
+                ) : (
+                  <>You are exercising System Administrator authority to cancel <strong className="text-slate-800 dark:text-slate-200">{overridingBooking.booker_name}</strong>&apos;s booking for <strong className="text-purple-600 dark:text-purple-400">{overridingBooking.room_name}</strong>.</>
+                )}
               </p>
             </div>
 

@@ -91,7 +91,7 @@ export default function BookingModal({
   }, []);
 
   React.useEffect(() => {
-    if (currentUserRole === 'admin' && room) {
+    if ((currentUserRole === 'admin' || currentUserRole === 'receptionist') && room) {
       getEmployeesForBookingAction().then((list) => {
         setEmployeesList(list);
       });
@@ -154,7 +154,7 @@ export default function BookingModal({
     formData.append('recurringCount', recurringCount.toString());
     formData.append('conflictStrategy', conflictStrategy);
 
-    if (currentUserRole === 'admin' && selectedEmployee) {
+    if ((currentUserRole === 'admin' || currentUserRole === 'receptionist') && selectedEmployee) {
       formData.append('bookForEmployeeId', selectedEmployee.id);
       formData.append('bookForDepartmentId', selectedEmployee.department_id || '');
     }
@@ -260,13 +260,13 @@ export default function BookingModal({
                 </div>
               )}
 
-              {/* Admin Book For Section */}
-              {currentUserRole === 'admin' && (
+              {/* Admin / Receptionist Book For Section */}
+              {(currentUserRole === 'admin' || currentUserRole === 'receptionist') && (
                 <div className="bg-purple-50 dark:bg-purple-950/40 p-4 rounded-2xl border border-purple-200 dark:border-purple-800/60 space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-300 flex items-center">
                       <Users className="w-3.5 h-3.5 mr-1.5 text-purple-600 dark:text-purple-400" />
-                      Book On Behalf Of Employee (Admin Only)
+                      Book On Behalf Of Employee ({currentUserRole === 'receptionist' ? 'Receptionist / Admin' : 'Admin Only'})
                     </label>
                     {selectedEmployee && (
                       <button
@@ -332,7 +332,7 @@ export default function BookingModal({
                         </div>
                       )}
                       <p className="text-xs text-purple-700 dark:text-purple-300/80 mt-1.5">
-                        Leave empty to book for yourself (Admin default).
+                        Leave empty to book for yourself ({currentUserRole === 'receptionist' ? 'Receptionist default' : 'Admin default'}).
                       </p>
                     </div>
                   ) : (

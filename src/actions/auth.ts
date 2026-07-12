@@ -106,6 +106,10 @@ export async function loginAction(
             await supabase.auth.signOut();
             return { error: 'Access Denied: You do not have administrator privileges.' };
           }
+          if (loginType === 'receptionist' && emp.role !== 'receptionist' && emp.role !== 'admin') {
+            await supabase.auth.signOut();
+            return { error: 'Access Denied: You do not have receptionist privileges.' };
+          }
 
           // Reset failed attempts on success (Supabase manages the actual counter in DB)
           await (supabase.from('employees') as any)
@@ -145,6 +149,8 @@ export async function loginAction(
 
           if (emp.role === 'admin' && loginType === 'admin') {
             redirect('/admin');
+          } else if (emp.role === 'receptionist' && loginType === 'receptionist') {
+            redirect('/receptionist');
           } else {
             redirect('/dashboard');
           }
@@ -176,6 +182,10 @@ export async function loginAction(
   // Check role requirement for Admin login
   if (loginType === 'admin' && mockEmp.role !== 'admin') {
     return { error: 'Access Denied: This account is not an administrator.' };
+  }
+  // Check role requirement for Receptionist login
+  if (loginType === 'receptionist' && mockEmp.role !== 'receptionist' && mockEmp.role !== 'admin') {
+    return { error: 'Access Denied: This account is not a receptionist.' };
   }
 
   // Block locked accounts regardless of password
@@ -279,6 +289,8 @@ export async function loginAction(
 
   if (mockEmp.role === 'admin' && loginType === 'admin') {
     redirect('/admin');
+  } else if (mockEmp.role === 'receptionist' && loginType === 'receptionist') {
+    redirect('/receptionist');
   } else {
     redirect('/dashboard');
   }
@@ -380,6 +392,8 @@ export async function resetPasswordAction(
   // Redirect to the correct dashboard based on role
   if (pendingData.role === 'admin') {
     redirect('/admin');
+  } else if (pendingData.role === 'receptionist') {
+    redirect('/receptionist');
   } else {
     redirect('/dashboard');
   }

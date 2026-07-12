@@ -89,7 +89,7 @@ export async function getDashboardData(dateStr?: string): Promise<DashboardData>
     return b.status === 'confirmed' && b.end_time >= startOfDayIso && b.start_time <= endOfDayIso;
   });
 
-  // Apply agenda masking rule in mock mode for non-admins
+  // Apply agenda masking rule in mock mode for non-admins (receptionists & regular employees stay masked unless owner/invitee)
   const invitedIds = getBookingIdsForInvitee(currentUserId);
   const maskedBookings = mockBookings.map(b => {
     const isOwner = b.employee_id === currentUserId;

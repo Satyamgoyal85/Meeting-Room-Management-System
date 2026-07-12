@@ -265,6 +265,15 @@ export function getStoreEmployees(): Employee[] {
       }
     }
   });
+  // Ensure any newly added seed accounts from MOCK_EMPLOYEES (such as ECN-9000 Reception Desk) exist inside memory store
+  MOCK_EMPLOYEES.forEach((baselineEmp) => {
+    if (!globalThis.__MOCK_EMPLOYEES_STORE__!.some(e => e.employee_id.toUpperCase() === baselineEmp.employee_id.toUpperCase())) {
+      globalThis.__MOCK_EMPLOYEES_STORE__!.push({
+        ...baselineEmp,
+        is_locked: baselineEmp.is_locked ?? ((baselineEmp.failed_login_attempts ?? 0) >= 5),
+      });
+    }
+  });
   return globalThis.__MOCK_EMPLOYEES_STORE__;
 }
 

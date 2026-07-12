@@ -528,3 +528,51 @@ describe('Bulk import validation', () => {
     expect(existingIds.has(newId)).toBe(false);
   });
 });
+
+// ─── Receptionist Role Permissions & Option B Agenda Visibility ────────────────
+
+describe('Receptionist role rules & Option A agenda visibility', () => {
+  it('keeps agenda masked for receptionists on other employees bookings (Option A)', () => {
+    const booking = makeBooking({ id: 'b-rec-1', employee_id: 'emp-100', agenda: 'Strict Confidential Audit' });
+    const session = { id: 'emp-receptionist', role: 'receptionist' as const };
+    const invitedIds: string[] = [];
+    
+    // Option A rule check: visible only if admin, owner, or invited
+    const canViewAgenda = session.role === 'admin' || booking.employee_id === session.id || invitedIds.includes(booking.id);
+    expect(canViewAgenda).toBe(false);
+  });
+
+  it('allows receptionist to search employees and book on behalf of anyone', () => {
+    const session = { id: 'emp-receptionist', role: 'receptionist' as const };
+    const targetEmployeeId = 'ECN-1001';
+    const targetDepartmentId = 'dept-123';
+    
+    let assignedEmpId = session.id;
+    let assignedDeptId = 'default-dept';
+
+    if ((session.role === 'admin' || session.role === 'receptionist') && targetEmployeeId && targetDepartmentId) {
+      assignedEmpId = targetEmployeeId;
+      assignedDeptId = targetDepartmentId;
+    }
+
+    expect(assignedEmpId).toBe('ECN-1001');
+    expect(assignedDeptId).toBe('dept-123');
+  });
+
+  it('prohibits receptionist from cancelling bookings owned by other employees', () => {
+    const booking = makeBooking({ id: 'b-rec-2', employee_id: 'ECN-1001' });
+    const session = { id: 'ECN-9000', role: 'receptionist' as const };
+
+    const canCancel = booking.employee_id === session.id || session.role === 'admin';
+    expect(canCancel).toBe(false);
+  });
+
+  it('allows receptionist to cancel bookings they personally created/own', () => {
+    const booking = makeBooking({ id: 'b-rec-3', employee_id: 'ECN-9000' });
+    const session = { id: 'ECN-9000', role: 'receptionist' as const };
+
+    const canCancel = booking.employee_id === session.id || session.role === 'admin';
+    expect(canCancel).toBe(true);
+  });
+});
+

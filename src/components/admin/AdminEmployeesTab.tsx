@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useTransition, useEffect } from 'react';
-import { Employee, Department, Booking } from '@/lib/types';
+import { Employee, Department, Booking, Role } from '@/lib/types';
 import { createEmployeeAction, updateEmployeeAction, toggleEmployeeStatusAction, deleteEmployeeAction, adminResetPasswordAction, bulkImportEmployeesAction, BulkImportResultItem } from '@/actions/admin';
 import { sortEmployeesByHierarchy } from '@/lib/sorting';
 import { 
@@ -73,7 +73,7 @@ export default function AdminEmployeesTab({
     username: string;
     departmentNameInput: string;
     departmentId: string | null;
-    role: 'employee' | 'admin';
+    role: Role;
     isValid: boolean;
     errorReason: string | null;
   }
@@ -98,7 +98,7 @@ export default function AdminEmployeesTab({
   const [emailUsername, setEmailUsername] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [departmentId, setDepartmentId] = useState(departments[0]?.id || '');
-  const [role, setRole] = useState<'employee' | 'admin'>('employee');
+  const [role, setRole] = useState<Role>('employee');
 
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -273,13 +273,15 @@ export default function AdminEmployeesTab({
           }
         }
 
-        let role: 'employee' | 'admin' = 'employee';
+        let role: Role = 'employee';
         if (isValid) {
           if (rawRole === 'admin') {
             role = 'admin';
+          } else if (rawRole === 'receptionist') {
+            role = 'receptionist';
           } else if (rawRole !== 'employee') {
             isValid = false;
-            errorReason = `Invalid role "${row['Role'] ?? rawRole}" (expected Employee or Admin)`;
+            errorReason = `Invalid role "${row['Role'] ?? rawRole}" (expected Employee, Receptionist, or Admin)`;
           }
         }
 
@@ -665,6 +667,11 @@ export default function AdminEmployeesTab({
                             <Shield className="w-3.5 h-3.5 text-purple-600" />
                             <span>Administrator</span>
                           </span>
+                        ) : emp.role === 'receptionist' ? (
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-300 font-bold text-[11px]">
+                            <User className="w-3.5 h-3.5 text-cyan-600" />
+                            <span>Receptionist</span>
+                          </span>
                         ) : (
                           <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium text-[11px]">
                             <User className="w-3.5 h-3.5 text-slate-400" />
@@ -873,10 +880,11 @@ export default function AdminEmployeesTab({
                 </label>
                 <select
                   value={role}
-                  onChange={(e) => setRole(e.target.value as 'employee' | 'admin')}
+                  onChange={(e) => setRole(e.target.value as Role)}
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
                 >
                   <option value="employee">User / Regular Employee</option>
+                  <option value="receptionist">Receptionist Desk / Front Office</option>
                   <option value="admin">System Administrator</option>
                 </select>
               </div>
@@ -1035,15 +1043,18 @@ export default function AdminEmployeesTab({
                 </label>
                 <select
                   value={role}
-                  onChange={(e) => setRole(e.target.value as 'employee' | 'admin')}
+                  onChange={(e) => setRole(e.target.value as Role)}
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
                 >
                   <option value="employee">User / Regular Employee</option>
+                  <option value="receptionist">Receptionist Desk / Front Office</option>
                   <option value="admin">System Administrator</option>
                 </select>
                 <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-1 font-medium">
-                  {role === 'admin' 
+                  {role === 'admin'
                     ? '⚠️ Granting Administrator status provides full app-wide control and immediate access.'
+                    : role === 'receptionist'
+                    ? '🏢 Receptionist can manage all bookings and book on behalf of any employee.'
                     : 'Regular employee access is restricted to personal bookings and room reservations.'}
                 </p>
               </div>

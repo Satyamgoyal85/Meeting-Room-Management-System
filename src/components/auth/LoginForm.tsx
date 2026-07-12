@@ -204,6 +204,8 @@ export default function LoginForm() {
             className={`w-full py-3 px-4 rounded-xl text-white font-bold text-sm shadow-lg flex items-center justify-center space-x-2 transition-all duration-200 ${
               isAdmin
                 ? 'bg-gradient-to-r from-purple-700 to-indigo-600 hover:from-purple-800 hover:to-indigo-700 shadow-purple-500/20 hover:shadow-purple-500/30'
+                : loginType === 'receptionist'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20 hover:shadow-blue-500/30'
                 : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-emerald-500/20 hover:shadow-emerald-500/30'
             } disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-[0.98]`}
           >
@@ -214,27 +216,63 @@ export default function LoginForm() {
               </>
             ) : (
               <>
-                <span>{isAdmin ? 'Sign In as Admin' : 'Sign In to Dashboard'}</span>
+                <span>
+                  {isAdmin
+                    ? 'Sign In as Admin'
+                    : loginType === 'receptionist'
+                    ? 'Sign In as Receptionist'
+                    : 'Sign In to Dashboard'}
+                </span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </form>
 
-        {/* Admin / Employee Toggle Link */}
-        <div className="mt-8 text-center border-t border-slate-200/60 dark:border-slate-800/60 pt-5">
-          <button
-            type="button"
-            onClick={() => {
-              setLoginType(isAdmin ? 'employee' : 'admin');
-              setError(null);
-              setIsLocked(false);
-              setShowForgotPassword(false);
-            }}
-            className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-normal transition-colors underline decoration-slate-300 dark:decoration-slate-700 underline-offset-4"
-          >
-            {isAdmin ? 'return to employee login' : 'login as administrator'}
-          </button>
+        {/* Admin / Receptionist / Employee Toggle Link */}
+        <div className="mt-8 text-center border-t border-slate-200/60 dark:border-slate-800/60 pt-5 flex items-center justify-center gap-4 text-xs text-slate-400">
+          {loginType !== 'admin' && (
+            <button
+              type="button"
+              onClick={() => {
+                setLoginType('admin');
+                setError(null);
+                setIsLocked(false);
+                setShowForgotPassword(false);
+              }}
+              className="hover:text-slate-600 dark:hover:text-slate-300 font-normal transition-colors underline decoration-slate-300 dark:decoration-slate-700 underline-offset-4"
+            >
+              login as administrator
+            </button>
+          )}
+          {loginType !== 'receptionist' && (
+            <button
+              type="button"
+              onClick={() => {
+                setLoginType('receptionist');
+                setError(null);
+                setIsLocked(false);
+                setShowForgotPassword(false);
+              }}
+              className="hover:text-slate-600 dark:hover:text-slate-300 font-normal transition-colors underline decoration-slate-300 dark:decoration-slate-700 underline-offset-4"
+            >
+              login as receptionist
+            </button>
+          )}
+          {loginType !== 'employee' && (
+            <button
+              type="button"
+              onClick={() => {
+                setLoginType('employee');
+                setError(null);
+                setIsLocked(false);
+                setShowForgotPassword(false);
+              }}
+              className="hover:text-slate-600 dark:hover:text-slate-300 font-normal transition-colors underline decoration-slate-300 dark:decoration-slate-700 underline-offset-4"
+            >
+              return to employee login
+            </button>
+          )}
         </div>
       </div>
 
@@ -322,6 +360,22 @@ export default function LoginForm() {
                 </div>
                 <span className="text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded">
                   Admin
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDemoFill('ECN-9000', 'rece9000', 'receptionist')}
+                className="text-left p-2.5 rounded-xl border border-blue-200 dark:border-blue-800/60 hover:border-blue-500 dark:hover:border-blue-400 bg-blue-50/30 dark:bg-blue-950/20 transition-all group flex items-center justify-between"
+              >
+                <div>
+                  <div className="text-xs font-bold text-blue-900 dark:text-blue-300 group-hover:text-blue-700 dark:group-hover:text-blue-200">
+                    Reception Desk (Receptionist Account)
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-500">ID: ECN-9000 • Pass: rece9000</div>
+                </div>
+                <span className="text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded">
+                  Receptionist
                 </span>
               </button>
             </div>
