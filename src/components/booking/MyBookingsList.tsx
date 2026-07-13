@@ -124,6 +124,8 @@ export default function MyBookingsList({
             const startDate = toIstDate(booking.start_time);
             const endDate = toIstDate(booking.end_time);
             const isConfirmed = booking.status === 'confirmed';
+            const isCompleted = isConfirmed && endDate.getTime() < Date.now();
+            const isActiveConfirmed = isConfirmed && !isCompleted;
 
             return (
               <div
@@ -155,12 +157,14 @@ export default function MyBookingsList({
                       )}
 
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                        isConfirmed
+                        isCompleted
+                          ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                          : isConfirmed
                           ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                           : 'bg-rose-50 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                       }`}>
-                        {isConfirmed ? <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" /> : <XCircle className="w-3.5 h-3.5 mr-1 text-rose-600" />}
-                        {booking.status}
+                        {isCompleted ? <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-slate-500" /> : isConfirmed ? <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" /> : <XCircle className="w-3.5 h-3.5 mr-1 text-rose-600" />}
+                        {isCompleted ? 'completed' : booking.status}
                       </span>
                     </div>
                   </div>
@@ -201,7 +205,7 @@ export default function MyBookingsList({
                 </div>
 
                 {/* Action Button: Cancel for upcoming confirmed bookings (only if organizer) */}
-                {activeTab === 'upcoming' && isConfirmed && !booking.is_invite && (
+                {activeTab === 'upcoming' && isActiveConfirmed && !booking.is_invite && (
                   <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800/80 flex justify-end">
                     <button
                       type="button"

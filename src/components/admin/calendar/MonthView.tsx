@@ -311,13 +311,21 @@ export default function MonthView({
                         </div>
                       </div>
                       <div className="flex flex-col items-end shrink-0 space-y-1">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                          booking.status === 'confirmed'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
-                            : 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
-                        }`}>
-                          {booking.status}
-                        </span>
+                        {(() => {
+                          const isConfirmed = booking.status === 'confirmed';
+                          const isCompleted = isConfirmed && toIstDate(booking.end_time).getTime() < Date.now();
+                          return (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                              isCompleted
+                                ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                : isConfirmed
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200'
+                            }`}>
+                              {isCompleted ? 'completed' : booking.status}
+                            </span>
+                          );
+                        })()}
                         {isEmployeeView && (
                           <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
                             booking.is_invite

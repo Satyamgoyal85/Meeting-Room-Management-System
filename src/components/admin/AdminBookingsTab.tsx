@@ -144,6 +144,8 @@ export default function AdminBookingsTab({
             const startDate = toIstDate(booking.start_time);
             const endDate = toIstDate(booking.end_time);
             const isConfirmed = booking.status === 'confirmed';
+            const isCompleted = isConfirmed && endDate.getTime() < Date.now();
+            const isActiveConfirmed = isConfirmed && !isCompleted;
 
             return (
               <div
@@ -158,12 +160,14 @@ export default function AdminBookingsTab({
                   <div className="flex flex-wrap items-center gap-2">
                     {/* Status Badge */}
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${
-                      isConfirmed
+                      isCompleted 
+                        ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                        : isConfirmed
                         ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                         : 'bg-rose-50 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                     }`}>
-                      {isConfirmed ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
-                      {booking.status}
+                      {isCompleted ? <CheckCircle2 className="w-3 h-3 mr-1" /> : isConfirmed ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
+                      {isCompleted ? 'completed' : booking.status}
                     </span>
 
                     {/* Room Tag */}
@@ -211,7 +215,7 @@ export default function AdminBookingsTab({
                 </div>
 
                 {/* Admin / Receptionist Cancellation Action */}
-                {isConfirmed && (
+                {isActiveConfirmed && (
                   (userRole === 'receptionist' && booking.employee_id !== currentUserId) ? (
                     <span 
                       title="Receptionists cannot cancel bookings owned by other employees"
