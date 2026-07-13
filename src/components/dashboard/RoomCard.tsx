@@ -31,6 +31,8 @@ interface RoomCardProps {
   currentUserDeptId: string | null;
   isRightNow: boolean;
   selectedDateStr: string;
+  selectedStartTime?: string;
+  selectedEndTime?: string;
   onViewSchedule: (room: Room) => void;
   onBookRoom: (room: Room) => void;
 }
@@ -44,6 +46,8 @@ export default function RoomCard({
   currentUserDeptId,
   isRightNow,
   selectedDateStr,
+  selectedStartTime,
+  selectedEndTime,
   onViewSchedule,
   onBookRoom,
 }: RoomCardProps) {
@@ -96,8 +100,21 @@ export default function RoomCard({
       }
     }
   } else {
-    // If checking a specific future time or date, check if there's any booking for that day
-    if (roomBookings.length > 0) {
+    // If checking a specific slot, check exact overlap if both startTime and endTime are provided
+    if (selectedStartTime && selectedEndTime && selectedEndTime > selectedStartTime) {
+      const overlappingBookings = roomBookings.filter(b => {
+        const bStart = format(toIstDate(b.start_time), 'HH:mm');
+        const bEnd = format(toIstDate(b.end_time), 'HH:mm');
+        return bStart < selectedEndTime && bEnd > selectedStartTime;
+      });
+      if (overlappingBookings.length > 0) {
+        isAvailable = false;
+        statusText = `Occupied at ${selectedStartTime}–${selectedEndTime}`;
+      } else {
+        isAvailable = true;
+        statusText = `Available at ${selectedStartTime}–${selectedEndTime}`;
+      }
+    } else if (roomBookings.length > 0) {
       isAvailable = false;
       statusText = `${roomBookings.length} booking(s) on ${selectedDateStr}`;
     }

@@ -21,7 +21,8 @@ import {
   Search
 } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
-import { isIstTimeInPast, getIstDateStr } from '@/lib/timezone';
+import { isIstTimeInPast, getIstDateStr, calculateNextEndTime } from '@/lib/timezone';
+
 
 interface BookingModalProps {
   room: Room | null;
@@ -59,6 +60,12 @@ export default function BookingModal({
   const [endTime, setEndTime] = useState('11:00');
   const [attendeesCount, setAttendeesCount] = useState(4);
   const [agenda, setAgenda] = useState('');
+
+  const handleStartTimeChange = (newStart: string) => {
+    const nextEnd = calculateNextEndTime(newStart, startTime, endTime, 15);
+    setStartTime(newStart);
+    setEndTime(nextEnd);
+  };
   
   // Recurring state
   const [isRecurring, setIsRecurring] = useState(false);
@@ -390,7 +397,7 @@ export default function BookingModal({
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1">Start Time</label>
                     <select
                       value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
+                      onChange={(e) => handleStartTimeChange(e.target.value)}
                       required
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500"
                     >
@@ -411,12 +418,16 @@ export default function BookingModal({
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
                       required
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500"
+                      className={`w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl text-xs font-mono font-bold focus:ring-2 ${
+                        endTime <= startTime
+                          ? 'border-rose-500 text-rose-600 focus:ring-rose-500'
+                          : 'border-slate-200 dark:border-slate-700 focus:ring-emerald-500'
+                      }`}
                     >
                       {TIME_OPTIONS.map((t) => {
                         const isPast = isIstTimeInPast(dateStr, t, serverTimeMs);
                         return (
-                          <option key={`end-${t}`} value={t} disabled={isPast || t <= startTime}>
+                          <option key={`end-${t}`} value={t} disabled={isPast}>
                             {t}{isPast ? ' (Past)' : ''}
                           </option>
                         );
@@ -424,6 +435,12 @@ export default function BookingModal({
                     </select>
                   </div>
                 </div>
+                {endTime <= startTime && (
+                  <div className="mt-2 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 rounded-xl p-2.5 flex items-center gap-2 text-rose-600 dark:text-rose-400 animate-pulse">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span className="text-xs font-bold">End time must be after start time</span>
+                  </div>
+                )}
               </div>
 
               {/* 2. Attendees Count & Capacity Validation */}
@@ -619,7 +636,7 @@ export default function BookingModal({
 
                 <button
                   type="submit"
-                  disabled={isPending || isOverCapacity}
+                  disabled={isPending || isOverCapacity || endTime <= startTime}
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center space-x-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                 >
                   {isPending ? (

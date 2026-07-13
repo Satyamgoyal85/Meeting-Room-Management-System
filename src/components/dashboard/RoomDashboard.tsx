@@ -161,6 +161,8 @@ export default function RoomDashboard({ initialData }: RoomDashboardProps) {
               currentUserDeptId={data.currentUserDeptId}
               isRightNow={filters.isRightNow}
               selectedDateStr={filters.dateStr}
+              selectedStartTime={filters.startTime}
+              selectedEndTime={filters.endTime}
               onViewSchedule={(r) => setSelectedTimelineRoom(r)}
               onBookRoom={(r) => handleBookRoomClick(r)}
             />

@@ -92,3 +92,47 @@ export function getEndOfDayIstIso(dateStr: string): string {
   return new Date(`${dateStr}T23:59:59.999+05:30`).toISOString();
 }
 
+/**
+ * Parses a time string (e.g. "13:15") into total minutes from midnight (e.g. 795).
+ */
+export function parseTimeMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/**
+ * Formats total minutes from midnight (e.g. 795) back to "HH:mm" (e.g. "13:15").
+ */
+export function formatTimeMinutes(totalMinutes: number): string {
+  const m = ((totalMinutes % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const mins = m % 60;
+  return `${h.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Computes a sensible new End Time when Start Time is updated.
+ * - If oldEndTime > oldStartTime and the duration is <= 12 hours, preserves the exact duration.
+ * - Otherwise (or if not previously established), defaults to newStartTime + defaultDurationMinutes (default 15 mins).
+ */
+export function calculateNextEndTime(newStartTimeStr: string, oldStartTimeStr: string, oldEndTimeStr: string, defaultDurationMinutes: number = 15): string {
+  const newStartMins = parseTimeMinutes(newStartTimeStr);
+  const oldStartMins = parseTimeMinutes(oldStartTimeStr);
+  const oldEndMins = parseTimeMinutes(oldEndTimeStr);
+  const oldDuration = oldEndMins - oldStartMins;
+
+  let newEndMins: number;
+  if (oldDuration > 0 && oldDuration <= 720) {
+    newEndMins = newStartMins + oldDuration;
+  } else {
+    newEndMins = newStartMins + defaultDurationMinutes;
+  }
+
+  // Cap at 23:59 (1439 mins) if it crosses midnight
+  if (newEndMins > 1439) {
+    newEndMins = 1439;
+  }
+  return formatTimeMinutes(newEndMins);
+}
+
+

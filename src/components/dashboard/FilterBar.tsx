@@ -12,7 +12,8 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { getIstDateStr } from '@/lib/timezone';
+import { getIstDateStr, calculateNextEndTime } from '@/lib/timezone';
+
 
 export interface FilterState {
   minCapacity: number;
@@ -65,11 +66,21 @@ export default function FilterBar({
   };
 
   const handleTimeChange = (field: 'startTime' | 'endTime', value: string) => {
-    onFilterChange({
-      ...filters,
-      isRightNow: false,
-      [field]: value,
-    });
+    if (field === 'startTime') {
+      const nextEnd = calculateNextEndTime(value, filters.startTime, filters.endTime, 15);
+      onFilterChange({
+        ...filters,
+        isRightNow: false,
+        startTime: value,
+        endTime: nextEnd,
+      });
+    } else {
+      onFilterChange({
+        ...filters,
+        isRightNow: false,
+        endTime: value,
+      });
+    }
   };
 
   const resetFilters = () => {
@@ -167,35 +178,46 @@ export default function FilterBar({
           </div>
 
           {!filters.isRightNow && (
-            <div className="grid grid-cols-3 gap-2 pt-2 animate-in fade-in duration-200">
-              <div>
-                <span className="block text-[10px] font-semibold text-slate-500 mb-1">Date</span>
-                <input
-                  type="date"
-                  value={filters.dateStr}
-                  min={getIstDateStr()}
-                  onChange={handleDateChange}
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+            <div className="space-y-1.5 pt-2 animate-in fade-in duration-200">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <span className="block text-[10px] font-semibold text-slate-500 mb-1">Date</span>
+                  <input
+                    type="date"
+                    value={filters.dateStr}
+                    min={getIstDateStr()}
+                    onChange={handleDateChange}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <span className="block text-[10px] font-semibold text-slate-500 mb-1">Start Time</span>
+                  <input
+                    type="time"
+                    value={filters.startTime}
+                    onChange={(e) => handleTimeChange('startTime', e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <span className="block text-[10px] font-semibold text-slate-500 mb-1">End Time</span>
+                  <input
+                    type="time"
+                    value={filters.endTime}
+                    onChange={(e) => handleTimeChange('endTime', e.target.value)}
+                    className={`w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 ${
+                      filters.endTime <= filters.startTime
+                        ? 'border-rose-500 text-rose-600 focus:ring-rose-500'
+                        : 'border-slate-200 dark:border-slate-700 focus:ring-emerald-500'
+                    }`}
+                  />
+                </div>
               </div>
-              <div>
-                <span className="block text-[10px] font-semibold text-slate-500 mb-1">Start Time</span>
-                <input
-                  type="time"
-                  value={filters.startTime}
-                  onChange={(e) => handleTimeChange('startTime', e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-              <div>
-                <span className="block text-[10px] font-semibold text-slate-500 mb-1">End Time</span>
-                <input
-                  type="time"
-                  value={filters.endTime}
-                  onChange={(e) => handleTimeChange('endTime', e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
+              {filters.endTime <= filters.startTime && (
+                <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1 animate-pulse">
+                  ⚠️ End time must be after start time
+                </p>
+              )}
             </div>
           )}
         </div>
