@@ -673,6 +673,27 @@ export async function createEmployeeAction(formData: FormData) {
   };
 
   if (!isPlaceholderUrl) {
+    const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
+      email,
+      password: initialPassword,
+      email_confirm: true,
+      user_metadata: { name, employee_id: employeeId, role }
+    });
+
+    if (authErr) {
+      if (authErr.message.includes('already been registered') || authErr.message.includes('already exists')) {
+        const { data: usersData } = await supabase.auth.admin.listUsers();
+        const existing = usersData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (existing) {
+          newEmp.auth_user_id = existing.id;
+        }
+      } else {
+        return { error: `Failed to create Supabase Auth account: ${authErr.message}` };
+      }
+    } else if (authUser?.user) {
+      newEmp.auth_user_id = authUser.user.id;
+    }
+
     const { error: insErr } = await (supabase.from('employees') as any).insert([newEmp]);
     if (insErr) return { error: `Database error: ${insErr.message}` };
   } else {
@@ -821,6 +842,22 @@ export async function bulkImportEmployeesAction(
   }
 
   if (!isPlaceholderUrl) {
+    for (const emp of newEmps) {
+      const { data: authUser, error: authErr } = await supabase.auth.admin.createUser({
+        email: emp.email,
+        password: emp.initial_password || 'dhanuka123',
+        email_confirm: true,
+        user_metadata: { name: emp.name, employee_id: emp.employee_id, role: emp.role }
+      });
+      if (authUser?.user) {
+        emp.auth_user_id = authUser.user.id;
+      } else if (authErr && (authErr.message.includes('already been registered') || authErr.message.includes('already exists'))) {
+        const { data: usersData } = await supabase.auth.admin.listUsers();
+        const existing = usersData?.users?.find(u => u.email?.toLowerCase() === emp.email?.toLowerCase());
+        if (existing) emp.auth_user_id = existing.id;
+      }
+    }
+
     const { error: insErr } = await (supabase.from('employees') as any).insert(newEmps);
     if (insErr) {
       return { error: `Database error during bulk insert: ${insErr.message}` };
