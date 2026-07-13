@@ -397,51 +397,106 @@ export async function resetPasswordAction(
     !process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   if (!isPlaceholderUrl && !pendingData.is_mock) {
-    // Supabase mode: update password via admin API + clear flag in DB
-    const { error: updateErr } = await supabase.auth.admin.updateUserById(pendingData.id, {
-      password: newPassword,
-    });
-    if (updateErr) return { error: `Password update failed: ${updateErr.message}` };
+    const adminSupa = createAdminClient();
+    // 1. Query employee from DB using admin client
+    const { data: empRecord, error: empErr } = await (adminSupa.from('employees') as any)
+      .select('*')
+      .eq('id', pendingData.id)
+      .single();
 
-    await (supabase.from('employees') as any)
+    if (empErr || !empRecord) {
+      return { error: 'Employee record not found in database.' };
+    }
+
+    const emp = empRecord as Employee;
+    let authUserId = emp.auth_user_id;
+
+    // Self-healing check: if auth_user_id is missing, look up by email in auth.users
+    if (!authUserId) {
+      const { data: usersData } = await adminSupa.auth.admin.listUsers();
+      const existing = usersData?.users?.find(u => u.email?.toLowerCase() === emp.email?.toLowerCase());
+      if (existing) {
+        authUserId = existing.id;
+        await (adminSupa.from('employees') as any).update({ auth_user_id: authUserId }).eq('id', emp.id);
+      } else {
+        const { data: createdAuth, error: createErr } = await adminSupa.auth.admin.createUser({
+          email: emp.email,
+          password: newPassword,
+          email_confirm: true,
+          user_metadata: { name: emp.name, employee_id: emp.employee_id, role: emp.role }
+        });
+        if (createErr) return { error: `Failed to create Supabase Auth account: ${createErr.message}` };
+        if (createdAuth?.user) {
+          authUserId = createdAuth.user.id;
+          await (adminSupa.from('employees') as any).update({ auth_user_id: authUserId }).eq('id', emp.id);
+        }
+      }
+    }
+
+    if (authUserId) {
+      // 2. Update password using admin client (which has SERVICE_ROLE_KEY and valid Bearer token)
+      const { error: updateErr } = await adminSupa.auth.admin.updateUserById(authUserId, {
+        password: newPassword,
+      });
+      if (updateErr) return { error: `Password update failed: ${updateErr.message}` };
+    }
+
+    // 3. Clear must_reset_password flag in database
+    await (adminSupa.from('employees') as any)
       .update({ must_reset_password: false, failed_login_attempts: 0 })
       .eq('id', pendingData.id);
+
+    // Clear pending cookie
+    cookieStore.delete(PENDING_RESET_COOKIE_NAME);
+
+    // Set full session
+    const sessionPayload = setFullSession(emp, false);
+    cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(sessionPayload), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+
+    if (pendingData.role === 'admin') {
+      redirect('/admin');
+    } else if (pendingData.role === 'receptionist') {
+      redirect('/receptionist');
+    } else {
+      redirect('/dashboard');
+    }
   } else {
     // Mock mode: update in-memory store
     const updated = updateMockEmployeePassword(pendingData.id, newPassword);
     if (!updated) {
       return { error: 'Employee record not found. Please contact your administrator.' };
     }
-  }
 
-  // Clear pending cookie and issue a full authenticated session
-  cookieStore.delete(PENDING_RESET_COOKIE_NAME);
+    // Clear pending cookie and issue a full authenticated session
+    cookieStore.delete(PENDING_RESET_COOKIE_NAME);
 
-  const emp = getStoreEmployees().find((e) => e.id === pendingData!.id);
-  const sessionPayload: AuthSession = {
-    id: pendingData.id,
-    employee_id: pendingData.employee_id,
-    name: pendingData.name,
-    department_id: emp?.department_id ?? null,
-    role: pendingData.role,
-    is_mock: pendingData.is_mock,
-  };
+    const emp = getStoreEmployees().find((e) => e.id === pendingData!.id);
+    const sessionPayload = setFullSession(
+      emp || { id: pendingData.id, employee_id: pendingData.employee_id, name: pendingData.name, department_id: null, role: pendingData.role },
+      true
+    );
 
-  cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(sessionPayload), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 7,
-    path: '/',
-  });
+    cookieStore.set(SESSION_COOKIE_NAME, JSON.stringify(sessionPayload), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
 
-  // Redirect to the correct dashboard based on role
-  if (pendingData.role === 'admin') {
-    redirect('/admin');
-  } else if (pendingData.role === 'receptionist') {
-    redirect('/receptionist');
-  } else {
-    redirect('/dashboard');
+    if (pendingData.role === 'admin') {
+      redirect('/admin');
+    } else if (pendingData.role === 'receptionist') {
+      redirect('/receptionist');
+    } else {
+      redirect('/dashboard');
+    }
   }
 }
 
