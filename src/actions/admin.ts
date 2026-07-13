@@ -241,6 +241,7 @@ export async function createRoomAction(formData: FormData): Promise<{ success?: 
   const floor = (formData.get('floor') as string) || 'Ground Floor';
   const amenitiesStr = (formData.get('amenities') as string) || '';
   const restrictedDeptId = formData.get('restrictedDeptId') as string;
+  const extensionNo = (formData.get('extensionNo') as string)?.trim() || null;
 
   if (!name || capacity < 1) {
     return { error: 'Please provide a valid Room Name and seating capacity.' };
@@ -274,6 +275,7 @@ export async function createRoomAction(formData: FormData): Promise<{ success?: 
     amenities: validatedAmenities,
     is_active: true,
     restricted_to_department_id: restrictedId,
+    extension_no: extensionNo || null,
     created_at: new Date().toISOString(),
   };
 
@@ -310,6 +312,7 @@ export async function updateRoomAction(formData: FormData): Promise<{ success?: 
   const amenitiesStr = (formData.get('amenities') as string) || '';
   const restrictedDeptId = formData.get('restrictedDeptId') as string;
   const isActive = formData.get('isActive') === 'true';
+  const extensionNo = (formData.get('extensionNo') as string)?.trim() || null;
 
   if (!roomId || !name || capacity < 1) {
     return { error: 'Invalid room update parameters.' };
@@ -343,6 +346,7 @@ export async function updateRoomAction(formData: FormData): Promise<{ success?: 
     amenities: validatedAmenities,
     is_active: isActive,
     restricted_to_department_id: restrictedId,
+    extension_no: extensionNo || null,
     created_at: new Date().toISOString(),
   };
 
@@ -355,6 +359,7 @@ export async function updateRoomAction(formData: FormData): Promise<{ success?: 
         amenities: updatedRoom.amenities,
         is_active: isActive,
         restricted_to_department_id: restrictedId,
+        extension_no: extensionNo || null,
       })
       .eq('id', roomId);
 

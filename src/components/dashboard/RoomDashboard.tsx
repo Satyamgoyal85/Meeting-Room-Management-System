@@ -69,7 +69,8 @@ export default function RoomDashboard({ initialData }: RoomDashboardProps) {
       const q = filters.searchQuery.toLowerCase();
       const matchName = room.name.toLowerCase().includes(q);
       const matchFloor = room.floor.toLowerCase().includes(q);
-      if (!matchName && !matchFloor) return false;
+      const matchExt = room.extension_no ? room.extension_no.toLowerCase().includes(q) : false;
+      if (!matchName && !matchFloor && !matchExt) return false;
     }
 
     // 2. Min Capacity

@@ -16,7 +16,8 @@ import {
   Building2,
   Tv,
   Wifi,
-  Coffee
+  Coffee,
+  Phone
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toIstDate } from '@/lib/timezone';
@@ -141,6 +142,14 @@ export default function RoomCard({
           <Users className="w-4 h-4 text-sky-500" />
           <span>Capacity: <strong className="text-slate-900 dark:text-white font-mono">{room.capacity} seats</strong></span>
         </div>
+
+        {/* Extension No. — only shown if set */}
+        {room.extension_no && (
+          <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
+            <Phone className="w-3.5 h-3.5 text-slate-400" />
+            <span>Ext. <strong className="text-slate-700 dark:text-slate-300 font-mono">{room.extension_no}</strong></span>
+          </div>
+        )}
 
         {/* Restriction Alert Banner (if restricted) */}
         {isRestricted && (

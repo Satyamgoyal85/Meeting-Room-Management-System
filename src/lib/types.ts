@@ -64,6 +64,8 @@ export interface Room {
   amenities: string[]; // JSONB array decoded
   is_active: boolean;
   restricted_to_department_id: string | null;
+  /** Internal phone extension number (optional, e.g. "204", "0-201") */
+  extension_no?: string | null;
   created_at: string;
   // Joined fields
   restricted_department?: Department;

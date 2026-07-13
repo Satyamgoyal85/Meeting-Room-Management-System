@@ -23,7 +23,8 @@ import {
   Sliders,
   Trash2,
   AlertTriangle,
-  Search
+  Search,
+  Phone
 } from 'lucide-react';
 
 interface AdminRoomsTabProps {
@@ -77,6 +78,7 @@ export default function AdminRoomsTab({
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>(['AC', 'Whiteboard']);
   const [restrictedDeptId, setRestrictedDeptId] = useState<string>('none');
   const [isActive, setIsActive] = useState(true);
+  const [extensionNo, setExtensionNo] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -170,6 +172,7 @@ export default function AdminRoomsTab({
     setSelectedAmenities(['AC', 'Whiteboard', 'Projector']);
     setRestrictedDeptId('none');
     setIsActive(true);
+    setExtensionNo('');
     setError(null);
     setSuccessMsg(null);
     setIsCreating(true);
@@ -182,6 +185,7 @@ export default function AdminRoomsTab({
     setSelectedAmenities([...room.amenities]);
     setRestrictedDeptId(room.restricted_to_department_id || 'none');
     setIsActive(room.is_active);
+    setExtensionNo(room.extension_no || '');
     setError(null);
     setSuccessMsg(null);
     setEditingRoom(room);
@@ -215,6 +219,7 @@ export default function AdminRoomsTab({
     formData.append('amenities', selectedAmenities.join(','));
     formData.append('restrictedDeptId', restrictedDeptId);
     formData.append('isActive', isActive ? 'true' : 'false');
+    formData.append('extensionNo', extensionNo.trim());
 
     startTransition(async () => {
       let res;
@@ -353,6 +358,9 @@ export default function AdminRoomsTab({
               const deptName = restrictedDept ? restrictedDept.name.toLowerCase() : 'open access all departments unrestricted';
               if (deptName.includes(q)) return true;
 
+              // Check Extension No.
+              if (room.extension_no && room.extension_no.toLowerCase().includes(q)) return true;
+
               return false;
             });
 
@@ -421,6 +429,13 @@ export default function AdminRoomsTab({
                           <Users className="w-4 h-4 text-sky-500" />
                           <span>Capacity: <strong className="text-slate-900 dark:text-white font-mono">{room.capacity} seats</strong></span>
                         </div>
+
+                        {room.extension_no && (
+                          <div className="flex items-center space-x-2 text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
+                            <Phone className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Ext. <strong className="text-slate-700 dark:text-slate-300 font-mono">{room.extension_no}</strong></span>
+                          </div>
+                        )}
 
                         {/* Restriction Badge */}
                         {isRestricted ? (
@@ -637,7 +652,7 @@ export default function AdminRoomsTab({
                 />
               </div>
 
-              {/* 2. Seating Capacity & Floor */}
+              {/* 2. Seating Capacity, Floor & Extension No. */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -671,6 +686,23 @@ export default function AdminRoomsTab({
                     <option value="5th Floor">5th Floor</option>
                   </select>
                 </div>
+              </div>
+
+              {/* 2b. Extension No. */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                  <span className="flex items-center space-x-1.5"><Phone className="w-3.5 h-3.5 text-slate-400" /><span>Extension No.</span></span>
+                  <span className="text-[10px] text-slate-400 font-normal">Optional</span>
+                </label>
+                <input
+                  type="text"
+                  value={extensionNo}
+                  onChange={(e) => setExtensionNo(e.target.value)}
+                  placeholder="e.g., 204 or 0-204"
+                  maxLength={20}
+                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold focus:ring-2 focus:ring-purple-500 placeholder:font-normal placeholder:text-slate-400"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Internal phone extension for this room. Leave blank if not applicable.</p>
               </div>
 
               {/* 3. Department Exclusivity */}
