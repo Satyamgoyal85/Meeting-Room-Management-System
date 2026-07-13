@@ -13,7 +13,6 @@ import {
   Sparkles,
   HelpCircle,
   CheckCircle2,
-  KeyRound,
   AlertTriangle,
   PhoneCall,
 } from 'lucide-react';
@@ -27,7 +26,6 @@ export default function LoginForm() {
   const [isLocked, setIsLocked] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [showDemoHelp, setShowDemoHelp] = useState(false);
   const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -61,15 +59,6 @@ export default function LoginForm() {
         setError(result.error);
       }
     });
-  };
-
-  const handleDemoFill = (id: string, pass: string, type: Role) => {
-    setLoginType(type);
-    setEmployeeId(id.replace(/^ECN-|^DAL-/i, ''));
-    setPassword(pass);
-    setError(null);
-    setIsLocked(false);
-    setShowForgotPassword(false);
   };
 
   const isAdmin = loginType === 'admin';
@@ -274,113 +263,6 @@ export default function LoginForm() {
             </button>
           )}
         </div>
-      </div>
-
-      {/* Demo / Testing Credentials Accordion */}
-      <div className="mt-6">
-        <button
-          type="button"
-          onClick={() => setShowDemoHelp(!showDemoHelp)}
-          className="w-full py-2.5 px-4 bg-white/60 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 flex items-center justify-between hover:bg-white dark:hover:bg-slate-900 transition-all shadow-sm"
-        >
-          <span className="flex items-center">
-            <KeyRound className="w-3.5 h-3.5 mr-2 text-emerald-600 dark:text-emerald-400" />
-            Demo / Local Dev Test Credentials
-          </span>
-          <span className="text-[10px] uppercase font-mono bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">
-            {showDemoHelp ? 'Hide' : 'Quick Fill'}
-          </span>
-        </button>
-
-        {showDemoHelp && (
-          <div className="mt-2 p-4 bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg space-y-3 animate-in fade-in duration-200">
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Click any account below to auto-fill credentials for instant testing:
-            </p>
-
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => handleDemoFill('ECN-1001', 'anan1001', 'employee')}
-                className="text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-800/30 transition-all group flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
-                    Ananya Verma (IT Dept)
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-500">ID: ECN-1001 • Pass: anan1001</div>
-                </div>
-                <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded">
-                  Employee
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDemoFill('ECN-2001', 'vikr2001', 'employee')}
-                className="text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-800/30 transition-all group flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
-                    Vikram Singh (R&D Dept)
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-500">ID: ECN-2001 • Pass: vikr2001</div>
-                </div>
-                <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded">
-                  Employee
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDemoFill('ECN-4001', 'sure4001', 'employee')}
-                className="text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 bg-slate-50/50 dark:bg-slate-800/30 transition-all group flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
-                    Suresh Kumar (Board Dept)
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-500">ID: ECN-4001 • Pass: sure4001</div>
-                </div>
-                <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 px-2 py-0.5 rounded">
-                  Board Access
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDemoFill('ECN-0001', 'raje0001', 'admin')}
-                className="text-left p-2.5 rounded-xl border border-purple-200 dark:border-purple-800/60 hover:border-purple-500 dark:hover:border-purple-400 bg-purple-50/30 dark:bg-purple-950/20 transition-all group flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-purple-900 dark:text-purple-300 group-hover:text-purple-700 dark:group-hover:text-purple-200">
-                    Rajesh Sharma (Admin Account)
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-500">ID: ECN-0001 • Pass: raje0001</div>
-                </div>
-                <span className="text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded">
-                  Admin
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDemoFill('ECN-9000', 'rece9000', 'receptionist')}
-                className="text-left p-2.5 rounded-xl border border-blue-200 dark:border-blue-800/60 hover:border-blue-500 dark:hover:border-blue-400 bg-blue-50/30 dark:bg-blue-950/20 transition-all group flex items-center justify-between"
-              >
-                <div>
-                  <div className="text-xs font-bold text-blue-900 dark:text-blue-300 group-hover:text-blue-700 dark:group-hover:text-blue-200">
-                    Reception Desk (Receptionist Account)
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-500">ID: ECN-9000 • Pass: rece9000</div>
-                </div>
-                <span className="text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded">
-                  Receptionist
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

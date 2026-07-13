@@ -109,8 +109,8 @@ export async function loginAction(
           password,
         });
 
-        // Self-healing check: If auth account wasn't created yet (or failed sign-in) but password matches initial or valid fallback
-        const validPasswords = [emp.initial_password, 'dhanuka123', 'admin123'].filter(Boolean);
+        // Self-healing check: If auth account wasn't created yet (or failed sign-in) but password matches initial password
+        const validPasswords = [emp.initial_password].filter(Boolean);
         if ((!authData?.user || authError) && validPasswords.includes(password)) {
           const { data: createdAuth } = await adminSupa.auth.admin.createUser({
             email,
@@ -244,7 +244,7 @@ export async function loginAction(
   }
 
   // Verify password
-  const validPasswords = [mockEmp.initial_password, 'dhanuka123', 'admin123'].filter(Boolean);
+  const validPasswords = [mockEmp.initial_password].filter(Boolean);
   if (!validPasswords.includes(password)) {
     const newCount = incrementFailedLoginAttempts(mockEmp.id);
     const remaining = MAX_FAILED_ATTEMPTS - newCount;
