@@ -370,7 +370,8 @@ VALUES
   ('11111111-1111-1111-1111-111111111107', 'Sales', false),
   ('11111111-1111-1111-1111-111111111108', 'Production', false),
   ('11111111-1111-1111-1111-111111111109', 'Quality Assurance', false),
-  ('11111111-1111-1111-1111-111111111110', 'Admin & Operations', false)
+  ('11111111-1111-1111-1111-111111111110', 'Admin & Operations', false),
+  ('11111111-1111-1111-1111-111111111111', 'Reception', false)
 ON CONFLICT (id) DO UPDATE SET 
   name = EXCLUDED.name,
   is_restricted_default = EXCLUDED.is_restricted_default;
@@ -420,7 +421,7 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO public.employees (id, auth_user_id, employee_id, name, email, initial_password, department_id, role, is_active, must_reset_password, failed_login_attempts)
 VALUES 
   ('33333333-3333-3333-3333-333333333301', null, 'ECN-0001', 'Rajesh Sharma', 'rajesh.sharma@dhanuka.com', 'raje0001', '11111111-1111-1111-1111-111111111110', 'admin', true, false, 0),
-  ('33333333-3333-3333-3333-333333333332', null, 'ECN-9000', 'Reception Desk', 'reception@dhanuka.com', 'rece9000', '11111111-1111-1111-1111-111111111110', 'receptionist', true, true, 0),
+  ('33333333-3333-3333-3333-333333333332', null, 'ECN-9000', 'Reception Desk', 'reception@dhanuka.com', 'rece9000', '11111111-1111-1111-1111-111111111111', 'receptionist', true, true, 0),
   ('33333333-3333-3333-3333-333333333330', null, 'ECN-0002', 'Meena Agarwal', 'meena.agarwal@dhanuka.com', 'meen0002', '11111111-1111-1111-1111-111111111110', 'employee', true, false, 0),
   ('33333333-3333-3333-3333-333333333331', null, 'ECN-0003', 'Deepak Joshi', 'deepak.joshi@dhanuka.com', 'deep0003', '11111111-1111-1111-1111-111111111110', 'employee', true, false, 0),
   ('33333333-3333-3333-3333-333333333302', null, 'ECN-1001', 'Ananya Verma', 'ananya.verma@dhanuka.com', 'anan1001', '11111111-1111-1111-1111-111111111101', 'employee', true, false, 0),

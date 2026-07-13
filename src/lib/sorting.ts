@@ -22,6 +22,7 @@ export const DEFAULT_DEPARTMENT_HIERARCHY_ORDER: string[] = [
   'HR',
   'Finance',
   'Admin & Operations',
+  'Reception',
   'IT',
   'R&D',
   'Marketing',

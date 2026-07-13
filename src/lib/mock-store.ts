@@ -352,6 +352,14 @@ export function getStoreDepartments(): Department[] {
   if (!globalThis.__MOCK_DEPARTMENTS_STORE__ || globalThis.__MOCK_DEPARTMENTS_STORE__.length === 0) {
     globalThis.__MOCK_DEPARTMENTS_STORE__ = [...MOCK_DEPARTMENTS];
   }
+  
+  // Ensure any newly added seed departments from MOCK_DEPARTMENTS exist inside memory store
+  MOCK_DEPARTMENTS.forEach((baselineDept) => {
+    if (!globalThis.__MOCK_DEPARTMENTS_STORE__!.some(d => d.id === baselineDept.id)) {
+      globalThis.__MOCK_DEPARTMENTS_STORE__!.push({ ...baselineDept });
+    }
+  });
+
   return globalThis.__MOCK_DEPARTMENTS_STORE__;
 }
 
