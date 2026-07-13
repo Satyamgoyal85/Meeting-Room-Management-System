@@ -57,7 +57,7 @@ export default function AdminBookingsTab({
 
     const formData = new FormData();
     formData.append('bookingId', overridingBooking.id);
-    formData.append('cancelReason', `[ADMIN OVERRIDE]: ${cancelReason}`);
+    formData.append('cancelReason', cancelReason.trim());
 
     startTransition(async () => {
       const res = await cancelBookingAction(formData);

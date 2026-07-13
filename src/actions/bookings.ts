@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/actions/auth';
+import { formatAdminAttribution } from '@/lib/format-attribution';
 import { MOCK_ROOMS, MOCK_DEPARTMENTS, MOCK_EMPLOYEES } from '@/lib/mock-data';
 import { getStoreBookings, getStoreRooms, addMockBooking, cancelMockBooking, addMockAuditLog, getStoreDepartments, getStoreEmployees, getStoreInvitees, addMockInvitees, getBookingIdsForInvitee, getInviteesForBooking } from '@/lib/mock-store';
 import { Room, Department, Booking, Employee } from '@/lib/types';
@@ -472,12 +473,17 @@ export async function cancelBookingAction(formData: FormData): Promise<{ success
     return { error: 'Access Denied: You can only cancel your own bookings.' };
   }
 
+  let formattedReason = cancelReason;
+  if (booking.employee_id !== session.id || /^\[ADMIN OVERRIDE\]:/i.test(cancelReason) || session.role === 'admin' || session.role === 'receptionist') {
+    formattedReason = formatAdminAttribution(session.name, session.role, cancelReason);
+  }
+
   if (!isPlaceholderUrl) {
     const { error: updateError } = await (supabase.from('bookings') as any)
       .update({
         status: 'cancelled',
         cancelled_by: session.id,
-        cancel_reason: cancelReason,
+        cancel_reason: formattedReason,
       })
       .eq('id', bookingId);
 
@@ -485,11 +491,39 @@ export async function cancelBookingAction(formData: FormData): Promise<{ success
       return { error: `Failed to cancel booking: ${updateError.message}` };
     }
   } else {
-    const success = cancelMockBooking(bookingId, session.id, cancelReason);
+    const success = cancelMockBooking(bookingId, session.id, formattedReason);
     if (!success) {
       return { error: 'Booking not found in local store.' };
     }
   }
+
+  // Record authoritative booking cancellation in audit_log
+  const auditLogId = crypto.randomUUID();
+  const auditLogEntry = {
+    id: auditLogId,
+    action_type: 'cancel_booking' as const,
+    performed_by: session.id,
+    target_id: bookingId,
+    details: {
+      action: 'cancel_booking',
+      reason: formattedReason,
+      booking_id: bookingId,
+      room_id: booking.room_id,
+      employee_id: booking.employee_id,
+      performed_by_name: session.name,
+      performed_by_role: session.role,
+    },
+    created_at: new Date().toISOString(),
+  };
+
+  if (!isPlaceholderUrl && supabase) {
+    try {
+      await (supabase.from('audit_log') as any).insert([auditLogEntry]);
+    } catch (auditErr) {
+      console.error('Failed to log booking cancellation audit entry to database:', auditErr);
+    }
+  }
+  addMockAuditLog(auditLogEntry);
 
   // Send cancellation email notification non-blockingly
   try {
@@ -525,7 +559,7 @@ export async function cancelBookingAction(formData: FormData): Promise<{ success
       const dateStr = getIstDateStr(startMs);
       const allRecipients = Array.from(new Set([organizerEmail, ...inviteeEmails].filter(Boolean) as string[]));
       const timeStr = `${getIstTimeStr(startMs)} – ${getIstTimeStr(endMs)}`;
-      const cancelledByAdminName = session.role === 'admin' && booking.employee_id !== session.id ? (session.name || 'Admin') : undefined;
+      const cancelledByAdminName = (session.role === 'admin' || session.role === 'receptionist') && booking.employee_id !== session.id ? (session.name || session.role) : undefined;
 
       const allEmps = getStoreEmployees();
       const allRooms = getStoreRooms();
@@ -561,7 +595,7 @@ export async function cancelBookingAction(formData: FormData): Promise<{ success
           agenda: booking.agenda,
           canViewAgenda,
           isCancellation: true,
-          cancellationReason: cancelReason,
+          cancellationReason: formattedReason,
         });
 
         sendNotificationEmail({
@@ -573,7 +607,7 @@ export async function cancelBookingAction(formData: FormData): Promise<{ success
             dateStr,
             timeStr,
             cancelledByAdminName,
-            reason: cancelReason,
+            reason: formattedReason,
             hasIcsAttachment: true,
           }),
           eventType: 'booking_cancelled',

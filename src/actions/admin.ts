@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/actions/auth';
+import { formatAdminAttribution } from '@/lib/format-attribution';
 import { MOCK_DEPARTMENTS, MOCK_EMPLOYEES } from '@/lib/mock-data';
 import { getStoreBookings, getStoreRooms, getStoreAmenities, addMockRoom, updateMockRoom, deleteMockRoom, addMockAmenity, deleteMockAmenity, getStoreDepartments, getStoreEmployees, addMockEmployee, addMockEmployeesBatch, updateMockEmployee, deleteMockEmployee, addMockDepartment, deleteMockDepartment, addMockAuditLog, addMockResetToken, getBookingIdsForInvitee } from '@/lib/mock-store';
 import { Room, Department, Booking, Employee, Amenity, UsageStat, CleanupJobLog, Role } from '@/lib/types';
@@ -481,6 +482,24 @@ export async function deleteAmenityAction(amenityId: string): Promise<{ success?
   return { success: true, message: 'Amenity removed and unassigned from all meeting rooms.' };
 }
 
+async function logAdminAuditEntry(supabase: any, isPlaceholderUrl: boolean, log: any) {
+  if (!isPlaceholderUrl && supabase) {
+    try {
+      await (supabase.from('audit_log') as any).insert({
+        id: log.id || crypto.randomUUID(),
+        action_type: log.action_type,
+        performed_by: log.performed_by,
+        target_id: log.target_id,
+        details: log.details,
+        created_at: log.created_at || new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error('Failed to log admin audit entry to DB:', e);
+    }
+  }
+  addMockAuditLog(log);
+}
+
 /**
  * Server action to delete or deactivate a meeting room with safety checks.
  */
@@ -524,12 +543,17 @@ export async function deleteRoomAction(roomId: string, confirmCancelUpcoming?: b
     }
     
     // Audit Log
-    addMockAuditLog({
+    await logAdminAuditEntry(supabase, isPlaceholderUrl, {
       id: crypto.randomUUID(),
       action_type: 'room_change',
       performed_by: session.id,
       target_id: roomId,
-      details: { action: 'hard_delete', room_name: roomName },
+      details: { 
+        action: 'hard_delete', 
+        room_name: roomName,
+        performed_by_name: session.name,
+        performed_by_role: session.role
+      },
       created_at: new Date().toISOString(),
     });
 
@@ -548,26 +572,43 @@ export async function deleteRoomAction(roomId: string, confirmCancelUpcoming?: b
     };
   }
 
+  const cancelReasonText = formatAdminAttribution(session.name, session.role, 'Meeting room deleted');
+
   // Cancel upcoming meetings if any
   if (upcomingConfirmed.length > 0) {
-    if (!isPlaceholderUrl) {
-      for (const ub of upcomingConfirmed) {
+    for (const ub of upcomingConfirmed) {
+      if (!isPlaceholderUrl) {
         await (supabase.from('bookings') as any).update({
           status: 'cancelled',
           cancelled_by: session.id,
-          cancel_reason: 'Room deleted by administrator'
+          cancel_reason: cancelReasonText
         }).eq('id', ub.id);
-      }
-    } else {
-      for (const ub of upcomingConfirmed) {
+      } else {
         const store = getStoreBookings();
         const idx = store.findIndex(b => b.id === ub.id);
         if (idx !== -1) {
           store[idx].status = 'cancelled';
           store[idx].cancelled_by = session.id;
-          store[idx].cancel_reason = 'Room deleted by administrator';
+          store[idx].cancel_reason = cancelReasonText;
         }
       }
+
+      await logAdminAuditEntry(supabase, isPlaceholderUrl, {
+        id: crypto.randomUUID(),
+        action_type: 'cancel_booking',
+        performed_by: session.id,
+        target_id: ub.id,
+        details: {
+          action: 'room_deletion_cascade',
+          reason: cancelReasonText,
+          room_id: roomId,
+          room_name: roomName,
+          booking_id: ub.id,
+          performed_by_name: session.name,
+          performed_by_role: session.role
+        },
+        created_at: new Date().toISOString(),
+      });
     }
   }
 
@@ -583,12 +624,19 @@ export async function deleteRoomAction(roomId: string, confirmCancelUpcoming?: b
     }
   }
 
-  addMockAuditLog({
+  await logAdminAuditEntry(supabase, isPlaceholderUrl, {
     id: crypto.randomUUID(),
     action_type: 'room_change',
     performed_by: session.id,
     target_id: roomId,
-    details: { action: 'soft_delete', room_name: roomName, cancelled_upcoming: upcomingConfirmed.length },
+    details: { 
+      action: 'soft_delete', 
+      room_name: roomName, 
+      cancelled_upcoming: upcomingConfirmed.length,
+      cancellation_reason: upcomingConfirmed.length > 0 ? cancelReasonText : null,
+      performed_by_name: session.name,
+      performed_by_role: session.role
+    },
     created_at: new Date().toISOString(),
   });
 
@@ -1072,12 +1120,16 @@ export async function deleteEmployeeAction(employeeId: string) {
     deleteMockEmployee(employeeId);
   }
 
-  addMockAuditLog({
+  await logAdminAuditEntry(supabase, isPlaceholderUrl, {
     id: crypto.randomUUID(),
     action_type: 'employee_change',
     performed_by: session.id,
     target_id: employeeId,
-    details: { action: 'hard_delete' },
+    details: { 
+      action: 'hard_delete',
+      performed_by_name: session.name,
+      performed_by_role: session.role
+    },
     created_at: new Date().toISOString(),
   });
 
@@ -1175,12 +1227,16 @@ export async function deleteDepartmentAction(departmentId: string) {
     deleteMockDepartment(departmentId);
   }
 
-  addMockAuditLog({
+  await logAdminAuditEntry(supabase, isPlaceholderUrl, {
     id: crypto.randomUUID(),
     action_type: 'department_change',
     performed_by: session.id,
     target_id: departmentId,
-    details: { action: 'delete' },
+    details: { 
+      action: 'delete',
+      performed_by_name: session.name,
+      performed_by_role: session.role
+    },
     created_at: new Date().toISOString(),
   });
 
