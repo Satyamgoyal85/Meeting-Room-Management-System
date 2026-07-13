@@ -181,18 +181,4 @@ To maintain high-performance queries and clean database sizing over multi-year c
 3. **1-Year Audit Log Retention**: Cancellation audit entries (`booking_cancellation_logs`), lockout logs, and system audit records older than **1 year** are permanently archived and cleared.
 
 ---
-
-## 👥 Seed & Test Credentials (Local Dev Mode)
-
-When running in Local Dev Mode (`mock-store.ts`) or after running `supabase/seed.sql`, use these pre-configured credentials:
-
-| Employee Name | ECN ID | Role | Department | Password | Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Rajesh Sharma** | `ECN-1000` | **Admin** | HR | `dhanuka123` | Master Admin access (`/admin`), unmasked agendas, full inventory CRUD |
-| **Ananya Verma** | `ECN-1001` | Employee | IT | `dhanuka123` | Can book Open/IT rooms; sees masked agendas (`Private Meeting`) for other depts |
-| **Vikram Singh** | `ECN-1002` | Employee | R&D | `dhanuka123` | Can book Open/R&D rooms |
-| **Priya Patel** | `ECN-1003` | Employee | Marketing | `dhanuka123` | Can book Open/Marketing rooms |
-| **Suresh Kumar** | `ECN-1004` | Employee | Board | `dhanuka123` | Can book Open/Board rooms (e.g., Board Room) |
-
----
 *Engineered for Dhanuka Agritech Ltd. • Meeting Room Management System (GHO Branch)*
