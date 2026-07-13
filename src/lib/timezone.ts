@@ -135,4 +135,47 @@ export function calculateNextEndTime(newStartTimeStr: string, oldStartTimeStr: s
   return formatTimeMinutes(newEndMins);
 }
 
+export type TimeFilterOption = 'today' | 'this_week' | 'last_week' | 'next_week' | 'all';
+
+/**
+ * Checks if a booking (given its start_time ISO string) matches the selected TimeFilterOption in IST (+05:30).
+ */
+export function matchesTimeFilter(startTimeIso: string, filter: TimeFilterOption): boolean {
+  if (filter === 'all') return true;
+
+  const bookingDate = toIstDate(startTimeIso);
+  const nowIst = toIstDate(new Date());
+
+  // Get current day of week (0 = Sun, 1 = Mon, ..., 6 = Sat)
+  const dayOfWeek = nowIst.getDay();
+  // We treat Monday as start of week (1) and Sunday as end of week (7)
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+
+  // Compute this week's Monday at 00:00:00.000 IST
+  const thisMonday = new Date(nowIst.getFullYear(), nowIst.getMonth(), nowIst.getDate() - daysSinceMonday, 0, 0, 0, 0);
+  // Compute this week's Sunday at 23:59:59.999 IST
+  const thisSunday = new Date(thisMonday.getFullYear(), thisMonday.getMonth(), thisMonday.getDate() + 6, 23, 59, 59, 999);
+
+  if (filter === 'today') {
+    return (
+      bookingDate.getFullYear() === nowIst.getFullYear() &&
+      bookingDate.getMonth() === nowIst.getMonth() &&
+      bookingDate.getDate() === nowIst.getDate()
+    );
+  } else if (filter === 'this_week') {
+    return bookingDate.getTime() >= thisMonday.getTime() && bookingDate.getTime() <= thisSunday.getTime();
+  } else if (filter === 'last_week') {
+    const lastMonday = new Date(thisMonday.getFullYear(), thisMonday.getMonth(), thisMonday.getDate() - 7, 0, 0, 0, 0);
+    const lastSunday = new Date(thisSunday.getFullYear(), thisSunday.getMonth(), thisSunday.getDate() - 7, 23, 59, 59, 999);
+    return bookingDate.getTime() >= lastMonday.getTime() && bookingDate.getTime() <= lastSunday.getTime();
+  } else if (filter === 'next_week') {
+    const nextMonday = new Date(thisMonday.getFullYear(), thisMonday.getMonth(), thisMonday.getDate() + 7, 0, 0, 0, 0);
+    const nextSunday = new Date(thisSunday.getFullYear(), thisSunday.getMonth(), thisSunday.getDate() + 7, 23, 59, 59, 999);
+    return bookingDate.getTime() >= nextMonday.getTime() && bookingDate.getTime() <= nextSunday.getTime();
+  }
+
+  return true;
+}
+
+
 

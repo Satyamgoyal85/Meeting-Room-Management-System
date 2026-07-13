@@ -19,7 +19,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { toIstDate } from '@/lib/timezone';
+import { toIstDate, TimeFilterOption, matchesTimeFilter } from '@/lib/timezone';
 
 interface MyBookingsListProps {
   initialUpcoming: MyBookingItem[];
@@ -33,6 +33,7 @@ export default function MyBookingsList({
   currentUserId,
 }: MyBookingsListProps) {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [timeFilter, setTimeFilter] = useState<TimeFilterOption>('today');
   const [cancellingBooking, setCancellingBooking] = useState<MyBookingItem | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +66,8 @@ export default function MyBookingsList({
     });
   };
 
-  const displayedList = activeTab === 'upcoming' ? initialUpcoming : initialPast;
+  const rawList = activeTab === 'upcoming' ? initialUpcoming : initialPast;
+  const displayedList = rawList.filter(b => matchesTimeFilter(b.start_time, timeFilter));
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -103,6 +105,24 @@ export default function MyBookingsList({
         </div>
       </div>
 
+      {/* Time Filter Bar */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Time Period:</span>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <select
+            value={timeFilter}
+            onChange={(e) => setTimeFilter(e.target.value as TimeFilterOption)}
+            className="w-full sm:w-auto px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="today">Today</option>
+            <option value="this_week">This Week</option>
+            <option value="last_week">Last Week</option>
+            <option value="next_week">Next Week</option>
+            <option value="all">All Dates ({rawList.length})</option>
+          </select>
+        </div>
+      </div>
+
       {/* Bookings List */}
       {displayedList.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -110,12 +130,24 @@ export default function MyBookingsList({
             <Calendar className="w-8 h-8" />
           </div>
           <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-            No {activeTab === 'upcoming' ? 'Upcoming' : 'Past'} Reservations Found
+            {timeFilter === 'today'
+              ? 'No bookings today'
+              : timeFilter === 'this_week'
+              ? 'No bookings this week'
+              : timeFilter === 'last_week'
+              ? 'No bookings last week'
+              : timeFilter === 'next_week'
+              ? 'No bookings next week'
+              : `No ${activeTab === 'upcoming' ? 'Upcoming' : 'Past'} Reservations Found`}
           </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-            {activeTab === 'upcoming' 
-              ? 'You do not have any active upcoming room bookings scheduled. Head over to the Room Dashboard to reserve a space!' 
-              : 'You have no past or cancelled meeting room records.'}
+            {timeFilter === 'today'
+              ? 'You do not have any room bookings scheduled for today. Select "This Week" or "All Dates" above to check other meetings.'
+              : timeFilter === 'this_week'
+              ? 'You have no reservations scheduled for the current week. Switch the time filter above to check other dates.'
+              : activeTab === 'upcoming' 
+              ? 'You do not have any active upcoming room bookings matching this filter. Head over to the Room Dashboard to reserve a space!' 
+              : 'You have no past or cancelled meeting room records matching this period.'}
           </p>
         </div>
       ) : (

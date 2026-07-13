@@ -21,7 +21,7 @@ import {
   FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { toIstDate } from '@/lib/timezone';
+import { toIstDate, TimeFilterOption, matchesTimeFilter } from '@/lib/timezone';
 
 interface AdminBookingsTabProps {
   bookings: AdminBookingItem[];
@@ -37,6 +37,7 @@ export default function AdminBookingsTab({
   userRole = 'admin',
 }: AdminBookingsTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [timeFilter, setTimeFilter] = useState<TimeFilterOption>('today');
   const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'cancelled'>('all');
   const [deptFilter, setDeptFilter] = useState<string>('all');
 
@@ -73,6 +74,7 @@ export default function AdminBookingsTab({
 
   // Filter bookings
   const filteredBookings = bookings.filter(b => {
+    if (!matchesTimeFilter(b.start_time, timeFilter)) return false;
     if (statusFilter !== 'all' && b.status !== statusFilter) return false;
     if (deptFilter !== 'all' && b.department_id !== deptFilter) return false;
 
@@ -109,9 +111,21 @@ export default function AdminBookingsTab({
         {/* Dropdown Filters */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <select
+            value={timeFilter}
+            onChange={(e) => setTimeFilter(e.target.value as TimeFilterOption)}
+            className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="today">Today</option>
+            <option value="this_week">This Week</option>
+            <option value="last_week">Last Week</option>
+            <option value="next_week">Next Week</option>
+            <option value="all">All ({bookings.length})</option>
+          </select>
+
+          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300"
+            className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-purple-500"
           >
             <option value="all">All Statuses ({bookings.length})</option>
             <option value="confirmed">Confirmed Only</option>
@@ -121,7 +135,7 @@ export default function AdminBookingsTab({
           <select
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
-            className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300"
+            className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-purple-500"
           >
             <option value="all">All Departments</option>
             {departments.map((d) => (
@@ -135,8 +149,24 @@ export default function AdminBookingsTab({
       {filteredBookings.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 shadow-sm">
           <ShieldAlert className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg">No Matching Bookings Found</h3>
-          <p className="text-xs text-slate-500 mt-1">Try adjusting your search criteria or department filter.</p>
+          <h3 className="font-bold text-slate-800 dark:text-slate-200 text-lg">
+            {timeFilter === 'today'
+              ? 'No bookings today'
+              : timeFilter === 'this_week'
+              ? 'No bookings this week'
+              : timeFilter === 'last_week'
+              ? 'No bookings last week'
+              : timeFilter === 'next_week'
+              ? 'No bookings next week'
+              : 'No matching bookings found'}
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            {timeFilter === 'today'
+              ? 'There are no room bookings scheduled for today. Select "This Week" or "All" from the time filter above to check other dates.'
+              : timeFilter === 'this_week'
+              ? 'There are no room bookings scheduled for the current week. Try switching the time filter or adjusting your department selection.'
+              : 'Try adjusting your search criteria, time period, or status/department filters.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
