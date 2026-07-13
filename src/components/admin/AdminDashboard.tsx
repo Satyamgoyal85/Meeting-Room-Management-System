@@ -94,7 +94,7 @@ export default function AdminDashboard({ initialData }: AdminDashboardProps) {
           }`}
         >
           <Layers className="w-4 h-4" />
-          <span>Rooms & Depts ({initialData.rooms.length})</span>
+          <span>Rooms & Depts ({initialData.rooms.filter(r => r.is_active !== false).length})</span>
         </button>
 
         <button

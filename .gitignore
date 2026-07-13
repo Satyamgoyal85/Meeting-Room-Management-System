@@ -48,3 +48,6 @@ smtp-credentials.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# scratch/temporary scripts
+/scratch/

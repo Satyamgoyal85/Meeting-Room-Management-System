@@ -273,7 +273,7 @@ export default function BookingModal({
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold uppercase tracking-wider text-purple-900 dark:text-purple-300 flex items-center">
                       <Users className="w-3.5 h-3.5 mr-1.5 text-purple-600 dark:text-purple-400" />
-                      Book On Behalf Of Employee ({currentUserRole === 'receptionist' ? 'Receptionist / Admin' : 'Admin Only'})
+                      Book On Behalf Of Employee ({currentUserRole === 'receptionist' ? 'Receptionist' : 'Admin'})
                     </label>
                     {selectedEmployee && (
                       <button
@@ -288,6 +288,12 @@ export default function BookingModal({
                       </button>
                     )}
                   </div>
+
+                  {currentUserRole === 'receptionist' && room.restricted_to_department_id && !selectedEmployee && (
+                    <div className="text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-100/60 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900/50">
+                      <strong>Restricted Room Policy:</strong> As a receptionist, you must select an employee below ("Book On Behalf Of") to schedule meetings in this restricted room.
+                    </div>
+                  )}
 
                   {!selectedEmployee ? (
                     <div className="relative">

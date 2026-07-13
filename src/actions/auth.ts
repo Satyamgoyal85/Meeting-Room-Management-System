@@ -633,30 +633,81 @@ export async function getPendingResetSession(): Promise<PendingResetSession | nu
  * Returns { valid: true, employeeName } if usable, or an error message if expired/used.
  */
 export async function verifyResetToken(rawToken: string): Promise<{ valid: boolean; employeeName?: string; error?: string }> {
-  if (!rawToken || rawToken.length < 32) {
+  const cleanedToken = rawToken ? rawToken.trim() : '';
+  if (!cleanedToken || cleanedToken.length < 32) {
     return { valid: false, error: 'Invalid reset link format.' };
   }
 
   const { createHash } = await import('crypto');
-  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const tokenHash = createHash('sha256').update(cleanedToken).digest('hex');
 
-  const record = findValidResetToken(tokenHash);
-  if (!record) {
-    return {
-      valid: false,
-      error: 'This reset link has already been used or expired. Please contact your administrator for a new one.',
-    };
+  const isPlaceholderUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  let employeeId: string | null = null;
+
+  if (!isPlaceholderUrl) {
+    // Use admin client to bypass RLS when checking token from public unauthenticated reset page
+    const adminSupa = createAdminClient();
+    const { data: record, error: dbErr } = await (adminSupa.from('password_reset_tokens') as any)
+      .select('*')
+      .eq('token_hash', tokenHash)
+      .single();
+
+    if (!record || record.used) {
+      return {
+        valid: false,
+        error: 'This reset link has already been used or expired. Please contact your administrator for a new one.',
+      };
+    }
+    if (new Date() > new Date(record.expires_at)) {
+      return {
+        valid: false,
+        error: 'This reset link has expired (24-hour limit). Please contact your administrator for a new one.',
+      };
+    }
+    employeeId = record.employee_id;
+  } else {
+    const record = findValidResetToken(tokenHash);
+    if (!record) {
+      return {
+        valid: false,
+        error: 'This reset link has already been used or expired. Please contact your administrator for a new one.',
+      };
+    }
+    employeeId = record.employeeId;
   }
 
-  const emp = getStoreEmployees().find((e) => e.id === record.employeeId);
-  if (!emp || !emp.is_active) {
+  let empName: string | undefined;
+  let isActive = false;
+
+  if (!isPlaceholderUrl && employeeId) {
+    const adminSupa = createAdminClient();
+    const { data: emp } = await (adminSupa.from('employees') as any)
+      .select('name, is_active')
+      .eq('id', employeeId)
+      .single();
+    if (emp) {
+      empName = emp.name;
+      isActive = emp.is_active;
+    }
+  } else if (employeeId) {
+    const emp = getStoreEmployees().find((e) => e.id === employeeId);
+    if (emp) {
+      empName = emp.name;
+      isActive = emp.is_active;
+    }
+  }
+
+  if (!isActive) {
     return {
       valid: false,
       error: 'The associated employee account is inactive or not found.',
     };
   }
 
-  return { valid: true, employeeName: emp.name };
+  return { valid: true, employeeName: empName };
 }
 
 /**
@@ -668,7 +719,8 @@ export async function redeemResetTokenAction(formData: FormData): Promise<{ erro
   const newPassword = formData.get('newPassword') as string;
   const confirmPassword = formData.get('confirmPassword') as string;
 
-  if (!rawToken) {
+  const cleanedToken = rawToken ? rawToken.trim() : '';
+  if (!cleanedToken) {
     return { error: 'Missing reset token.' };
   }
   if (!newPassword || !confirmPassword) {
@@ -688,56 +740,99 @@ export async function redeemResetTokenAction(formData: FormData): Promise<{ erro
   }
 
   const { createHash } = await import('crypto');
-  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const tokenHash = createHash('sha256').update(cleanedToken).digest('hex');
 
-  const record = findValidResetToken(tokenHash);
-  if (!record) {
-    return {
-      error: 'This reset link has already been used or expired. Please contact your administrator for a new one.',
-    };
-  }
-
-  const emp = getStoreEmployees().find((e) => e.id === record.employeeId);
-  if (!emp || !emp.is_active) {
-    return { error: 'Employee account is inactive or not found.' };
-  }
-
-  // Consume token so it can never be used again
-  const consumed = consumeMockResetToken(tokenHash);
-  if (!consumed) {
-    return { error: 'Failed to process reset link. It may have just been used.' };
-  }
-
-  const supabase = await createClient();
   const isPlaceholderUrl =
     process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') ||
     !process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-  if (!isPlaceholderUrl) {
-    // Supabase mode: update user password via admin API
-    const { error: updateErr } = await supabase.auth.admin.updateUserById(emp.id, {
-      password: newPassword,
-    });
-    if (updateErr) return { error: `Password update failed: ${updateErr.message}` };
+  let targetEmp: Employee | null = null;
 
-    await (supabase.from('employees') as any)
+  if (!isPlaceholderUrl) {
+    const adminSupa = createAdminClient();
+    const { data: record } = await (adminSupa.from('password_reset_tokens') as any)
+      .select('*')
+      .eq('token_hash', tokenHash)
+      .single();
+
+    if (!record || record.used) {
+      return { error: 'This reset link has already been used or expired. Please contact your administrator for a new one.' };
+    }
+    if (new Date() > new Date(record.expires_at)) {
+      return { error: 'This reset link has expired (24-hour limit). Please contact your administrator for a new one.' };
+    }
+
+    const { data: emp } = await (adminSupa.from('employees') as any)
+      .select('*')
+      .eq('id', record.employee_id)
+      .single();
+
+    if (!emp || !emp.is_active) {
+      return { error: 'Employee account is inactive or not found.' };
+    }
+    targetEmp = emp as Employee;
+
+    // Mark token used
+    await (adminSupa.from('password_reset_tokens') as any)
+      .update({ used: true })
+      .eq('token_hash', tokenHash);
+
+    // Update password in Supabase Auth via admin client
+    if (emp.auth_user_id) {
+      const { error: updateErr } = await adminSupa.auth.admin.updateUserById(emp.auth_user_id, {
+        password: newPassword,
+      });
+      if (updateErr) return { error: `Password update failed: ${updateErr.message}` };
+    } else {
+      const { data: newUser, error: createErr } = await adminSupa.auth.admin.createUser({
+        email: `${emp.employee_id.toLowerCase()}@dhanuka.com`,
+        password: newPassword,
+        email_confirm: true,
+      });
+      if (createErr || !newUser?.user) {
+        return { error: `Failed to set password in Auth system: ${createErr?.message || 'Unknown error'}` };
+      }
+      await (adminSupa.from('employees') as any)
+        .update({ auth_user_id: newUser.user.id })
+        .eq('id', emp.id);
+    }
+
+    await (adminSupa.from('employees') as any)
       .update({ must_reset_password: false, failed_login_attempts: 0, is_locked: false })
       .eq('id', emp.id);
   } else {
-    // Mock mode: update password in store
+    const record = findValidResetToken(tokenHash);
+    if (!record) {
+      return {
+        error: 'This reset link has already been used or expired. Please contact your administrator for a new one.',
+      };
+    }
+    const emp = getStoreEmployees().find((e) => e.id === record.employeeId);
+    if (!emp || !emp.is_active) {
+      return { error: 'Employee account is inactive or not found.' };
+    }
+    const consumed = consumeMockResetToken(tokenHash);
+    if (!consumed) {
+      return { error: 'Failed to process reset link. It may have just been used.' };
+    }
     updateMockEmployeePassword(emp.id, newPassword);
+    targetEmp = emp;
+  }
+
+  if (!targetEmp) {
+    return { error: 'Failed to resolve target employee record.' };
   }
 
   // Log audit event
   addMockAuditLog({
     id: crypto.randomUUID(),
     action_type: 'password_reset',
-    performed_by: emp.id,
-    target_id: emp.id,
+    performed_by: targetEmp.id,
+    target_id: targetEmp.id,
     details: {
       action: 'admin_reset_link_redeemed',
-      employee_id: emp.employee_id,
-      name: emp.name,
+      employee_id: targetEmp.employee_id,
+      name: targetEmp.name,
       redeemed_at: new Date().toISOString(),
     },
     created_at: new Date().toISOString(),
@@ -749,7 +844,7 @@ export async function redeemResetTokenAction(formData: FormData): Promise<{ erro
 
   // Issue full session cookie & redirect to dashboard
   const sessionPayload = setFullSession(
-    { ...emp, department_id: emp.department_id },
+    { ...targetEmp, department_id: targetEmp.department_id },
     true
   );
   const cookieStore = await cookies();
@@ -761,7 +856,7 @@ export async function redeemResetTokenAction(formData: FormData): Promise<{ erro
     path: '/',
   });
 
-  if (emp.role === 'admin') {
+  if (targetEmp.role === 'admin') {
     redirect('/admin');
   } else {
     redirect('/dashboard');

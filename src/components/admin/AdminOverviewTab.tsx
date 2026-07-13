@@ -22,6 +22,7 @@ interface AdminOverviewTabProps {
 
 export default function AdminOverviewTab({ rooms, departments, employees }: AdminOverviewTabProps) {
   const router = useRouter();
+  const activeRooms = rooms.filter(r => r.is_active !== false);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -36,7 +37,7 @@ export default function AdminOverviewTab({ rooms, departments, employees }: Admi
             <div className="w-12 h-12 rounded-xl bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 flex items-center justify-center mb-4">
               <Building2 className="w-6 h-6" />
             </div>
-            <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-1">{rooms.length} Meeting Rooms</h3>
+            <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-1">{activeRooms.length} Meeting Rooms</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
               Configured across 4 floors in GHO Branch with diverse attendee capacities from 4 to 20 seats.
             </p>
@@ -90,9 +91,9 @@ export default function AdminOverviewTab({ rooms, departments, employees }: Admi
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Meeting Rooms ({rooms.length})</h2>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Meeting Rooms ({activeRooms.length})</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Master inventory of all conference and collaboration spaces across GHO Branch.
+              Master inventory of all active conference and collaboration spaces across GHO Branch.
             </p>
           </div>
           <span className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-3 py-1 rounded-full">
@@ -114,7 +115,7 @@ export default function AdminOverviewTab({ rooms, departments, employees }: Admi
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
-                {rooms.map((room) => {
+                {activeRooms.map((room) => {
                   const isRestricted = room.restricted_to_department_id !== null;
                   const restrictedDept = departments.find(d => d.id === room.restricted_to_department_id);
                   return (

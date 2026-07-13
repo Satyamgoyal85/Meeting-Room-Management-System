@@ -183,6 +183,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Helper function to check if current user is receptionist
+CREATE OR REPLACE FUNCTION public.is_receptionist()
+RETURNS BOOLEAN AS $$
+DECLARE
+    emp_role TEXT;
+BEGIN
+    IF current_setting('role', true) = 'service_role' THEN
+        RETURN false;
+    END IF;
+    SELECT role INTO emp_role FROM public.employees WHERE auth_user_id = auth.uid() LIMIT 1;
+    RETURN coalesce(emp_role = 'receptionist', false);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Public bookings view masks agenda for non-admin, non-owner, non-invitees
 CREATE OR REPLACE VIEW public.v_bookings_public AS
 SELECT 
@@ -223,9 +237,11 @@ BEGIN
         RAISE EXCEPTION 'Booking Failed: Selected room is inactive or does not exist.';
     END IF;
 
-    IF room_record.restricted_to_department_id IS NOT NULL AND NOT public.is_admin() THEN
-        IF NEW.department_id != room_record.restricted_to_department_id THEN
-            RAISE EXCEPTION 'Access Denied: Room % is restricted exclusively to designated department personnel.', room_record.name;
+    IF room_record.restricted_to_department_id IS NOT NULL THEN
+        IF NOT public.is_admin() AND NOT (public.is_receptionist() AND NEW.employee_id != coalesce(public.current_employee_id(), '00000000-0000-0000-0000-000000000000'::uuid)) THEN
+            IF NEW.department_id != room_record.restricted_to_department_id THEN
+                RAISE EXCEPTION 'Access Denied: Room % is restricted exclusively to designated department personnel.', room_record.name;
+            END IF;
         END IF;
     END IF;
 
@@ -305,7 +321,7 @@ CREATE POLICY "Anyone can read bookings to check availability" ON public.booking
 DROP POLICY IF EXISTS "Employees can read own or invited bookings on bookings table" ON public.bookings;
 DROP POLICY IF EXISTS "Employees can create bookings for themselves" ON public.bookings;
 CREATE POLICY "Employees can create bookings for themselves" ON public.bookings FOR INSERT WITH CHECK (
-    (employee_id = public.current_employee_id() OR public.is_admin() OR current_setting('role', true) = 'service_role' OR true)
+    (employee_id = public.current_employee_id() OR public.is_admin() OR public.is_receptionist() OR current_setting('role', true) = 'service_role' OR true)
 );
 DROP POLICY IF EXISTS "Employees can update/cancel own confirmed bookings" ON public.bookings;
 CREATE POLICY "Employees can update/cancel own confirmed bookings" ON public.bookings FOR UPDATE USING (
@@ -319,7 +335,7 @@ DROP POLICY IF EXISTS "Anyone can read booking invitees" ON public.booking_invit
 CREATE POLICY "Anyone can read booking invitees" ON public.booking_invitees FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Booking owners or admins can manage invitees" ON public.booking_invitees;
 CREATE POLICY "Booking owners or admins can manage invitees" ON public.booking_invitees FOR ALL USING (
-    public.is_admin() OR current_setting('role', true) = 'service_role' OR true
+    public.is_admin() OR public.is_receptionist() OR current_setting('role', true) = 'service_role' OR true
 );
 
 -- 9. SMTP Settings Policies

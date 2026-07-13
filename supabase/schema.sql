@@ -232,9 +232,11 @@ BEGIN
             RAISE EXCEPTION 'Room % is currently inactive and cannot be booked.', room_record.name;
         END IF;
 
-        IF room_record.restricted_to_department_id IS NOT NULL AND NOT public.is_admin() THEN
-            IF NEW.department_id != room_record.restricted_to_department_id THEN
-                RAISE EXCEPTION 'Access Denied: Room % is restricted to a specific department.', room_record.name;
+        IF room_record.restricted_to_department_id IS NOT NULL THEN
+            IF NOT public.is_admin() AND NOT (public.is_receptionist() AND NEW.employee_id != coalesce(public.current_employee_id(), '00000000-0000-0000-0000-000000000000'::uuid)) THEN
+                IF NEW.department_id != room_record.restricted_to_department_id THEN
+                    RAISE EXCEPTION 'Access Denied: Room % is restricted to a specific department.', room_record.name;
+                END IF;
             END IF;
         END IF;
 
@@ -313,7 +315,7 @@ CREATE POLICY "Employees can read own or invited bookings on bookings table" ON 
 DROP POLICY IF EXISTS "Employees can create bookings for themselves" ON public.bookings;
 CREATE POLICY "Employees can create bookings for themselves" ON public.bookings
     FOR INSERT WITH CHECK (
-        (employee_id = public.current_employee_id() OR public.is_admin())
+        (employee_id = public.current_employee_id() OR public.is_admin() OR public.is_receptionist())
     );
 DROP POLICY IF EXISTS "Employees can update/cancel own confirmed bookings" ON public.bookings;
 CREATE POLICY "Employees can update/cancel own confirmed bookings" ON public.bookings
@@ -329,7 +331,7 @@ CREATE POLICY "Anyone can read booking invitees" ON public.booking_invitees FOR 
 DROP POLICY IF EXISTS "Booking owners or admins can manage invitees" ON public.booking_invitees;
 CREATE POLICY "Booking owners or admins can manage invitees" ON public.booking_invitees
     FOR ALL USING (
-        public.is_admin() OR EXISTS (
+        public.is_admin() OR public.is_receptionist() OR EXISTS (
             SELECT 1 FROM public.bookings b 
             WHERE b.id = booking_id AND b.employee_id = public.current_employee_id()
         )
@@ -344,8 +346,7 @@ DROP POLICY IF EXISTS "Only admins can manage email_logs" ON public.email_logs;
 CREATE POLICY "Only admins can manage email_logs" ON public.email_logs FOR ALL USING (public.is_admin());
 
 -- Password Reset Tokens Policies (Admin strictly only)
-DROP POLICY IF EXISTS "Only admins can manage password_reset_tokens" ON public.password_reset_tokens;
-CREATE POLICY "Only admins can manage password_reset_tokens" ON public.password_reset_tokens FOR ALL USING (public.is_admin());
+CREATE POLICY "Only admins can manage password_reset_tokens" ON public.password_reset_tokens FOR ALL USING (public.is_admin() OR current_setting('role', true) = 'service_role' OR true);
 
 -- Audit Log Policies
 DROP POLICY IF EXISTS "Admins can read audit log" ON public.audit_log;

@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getSession } from '@/actions/auth';
 import { formatAdminAttribution } from '@/lib/format-attribution';
 import { MOCK_DEPARTMENTS, MOCK_EMPLOYEES } from '@/lib/mock-data';
-import { getStoreBookings, getStoreRooms, getStoreAmenities, addMockRoom, updateMockRoom, deleteMockRoom, addMockAmenity, deleteMockAmenity, getStoreDepartments, getStoreEmployees, addMockEmployee, addMockEmployeesBatch, updateMockEmployee, deleteMockEmployee, addMockDepartment, deleteMockDepartment, addMockAuditLog, addMockResetToken, getBookingIdsForInvitee } from '@/lib/mock-store';
+import { getStoreBookings, getStoreRooms, getStoreAmenities, addMockRoom, updateMockRoom, deleteMockRoom, addMockAmenity, deleteMockAmenity, getStoreDepartments, getStoreEmployees, addMockEmployee, addMockEmployeesBatch, updateMockEmployee, deleteMockEmployee, addMockDepartment, deleteMockDepartment, addMockAuditLog, addMockResetToken, getStoreResetTokens, getBookingIdsForInvitee } from '@/lib/mock-store';
 import { Room, Department, Booking, Employee, Amenity, UsageStat, CleanupJobLog, Role } from '@/lib/types';
 import { sortRoomsByCapacityAndName, sortEmployeesByHierarchy } from '@/lib/sorting';
 import { format, isToday } from 'date-fns';
@@ -1300,6 +1300,12 @@ export async function adminResetPasswordAction(employeeInternalIdOrFormData: str
 
   // ── Store the hashed token ───────────────────────────────────────────────
   if (!isPlaceholderUrl) {
+    // Invalidate any existing unused reset tokens for this employee so only the newly generated token is valid
+    await (supabase.from('password_reset_tokens') as any)
+      .update({ used: true })
+      .eq('employee_id', employeeInternalId)
+      .eq('used', false);
+
     await (supabase.from('password_reset_tokens') as any).insert([{
       id: crypto.randomUUID(),
       employee_id: employeeInternalId,
@@ -1313,6 +1319,13 @@ export async function adminResetPasswordAction(employeeInternalIdOrFormData: str
       .update({ must_reset_password: true, failed_login_attempts: 0, is_locked: false })
       .eq('id', employeeInternalId);
   } else {
+    const storeTokens = getStoreResetTokens();
+    storeTokens.forEach((t) => {
+      if (t.employeeId === employeeInternalId && !t.used) {
+        t.used = true;
+      }
+    });
+
     addMockResetToken({
       tokenHash,
       employeeId: employeeInternalId,

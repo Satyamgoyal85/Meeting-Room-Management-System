@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition, useEffect } from 'react';
+import React, { useState, useTransition, useEffect, useMemo } from 'react';
 import { Room, Department, Amenity, Booking, Employee } from '@/lib/types';
 import { createRoomAction, updateRoomAction, deleteRoomAction, createDepartmentAction, deleteDepartmentAction } from '@/actions/admin';
 import AdminAmenitiesTab, { renderAmenityIcon } from './AdminAmenitiesTab';
@@ -24,7 +24,8 @@ import {
   Trash2,
   AlertTriangle,
   Search,
-  Phone
+  Phone,
+  AlertCircle
 } from 'lucide-react';
 
 interface AdminRoomsTabProps {
@@ -63,6 +64,9 @@ export default function AdminRoomsTab({
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [roomFilterStatus, setRoomFilterStatus] = useState<'active' | 'all' | 'inactive'>('active');
+  const activeRoomsCount = useMemo(() => sortedRooms.filter(r => r.is_active !== false).length, [sortedRooms]);
+  const inactiveRoomsCount = useMemo(() => sortedRooms.filter(r => r.is_active === false).length, [sortedRooms]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -257,7 +261,7 @@ export default function AdminRoomsTab({
           }`}
         >
           <Building2 className="w-4 h-4" />
-          <span>Meeting Room Inventory ({sortedRooms.length})</span>
+          <span>Meeting Room Inventory ({activeRoomsCount})</span>
         </button>
 
         <button
@@ -297,9 +301,46 @@ export default function AdminRoomsTab({
               </h2>
             </div>
 
-            <div className="flex items-center space-x-3 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              {/* Status Filter Segmented Control */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                <button
+                  type="button"
+                  onClick={() => setRoomFilterStatus('active')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    roomFilterStatus === 'active'
+                      ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Active ({activeRoomsCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomFilterStatus('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    roomFilterStatus === 'all'
+                      ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  All ({sortedRooms.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoomFilterStatus('inactive')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    roomFilterStatus === 'inactive'
+                      ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Inactive ({inactiveRoomsCount})
+                </button>
+              </div>
+
               {/* Search Input */}
-              <div className="relative flex-1 sm:w-72">
+              <div className="relative flex-1 sm:w-64">
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
@@ -335,6 +376,10 @@ export default function AdminRoomsTab({
           {/* Rooms Grid */}
           {(() => {
             const filteredRooms = sortedRooms.filter(room => {
+              const isInactive = room.is_active === false;
+              if (roomFilterStatus === 'active' && isInactive) return false;
+              if (roomFilterStatus === 'inactive' && !isInactive) return false;
+
               if (!debouncedSearch.trim()) return true;
               const q = debouncedSearch.toLowerCase().trim();
 
@@ -371,17 +416,32 @@ export default function AdminRoomsTab({
                     <Search className="w-6 h-6" />
                   </div>
                   <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    {searchQuery ? `No meeting rooms matching "${searchQuery}"` : 'No meeting rooms found.'}
+                    {searchQuery
+                      ? `No meeting rooms matching "${searchQuery}" in ${roomFilterStatus} rooms`
+                      : roomFilterStatus === 'inactive'
+                        ? 'No inactive/deactivated meeting rooms found.'
+                        : 'No meeting rooms found.'}
                   </div>
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline mt-1 flex items-center space-x-1"
-                    >
-                      <span>Clear search filter</span>
-                    </button>
-                  )}
+                  <div className="flex items-center space-x-3 mt-1">
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline flex items-center space-x-1"
+                      >
+                        <span>Clear search filter</span>
+                      </button>
+                    )}
+                    {roomFilterStatus !== 'active' && !searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setRoomFilterStatus('active')}
+                        className="text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline flex items-center space-x-1"
+                      >
+                        <span>Show Active Rooms</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             }

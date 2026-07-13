@@ -56,9 +56,12 @@ export default function AdminCalendarTab({ bookings, rooms, departments, current
   // ── Sidebar ──────────────────────────────────────────────────────────────────
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // ── Active Rooms Only for Calendar Checklist ────────────────────────────────
+  const activeRooms = useMemo(() => rooms.filter(r => r.is_active !== false), [rooms]);
+
   // ── Room visibility (sidebar checklist) ────────────────────────────────────
   const [visibleRoomIds, setVisibleRoomIds] = useState<Set<string>>(
-    () => new Set(rooms.map(r => r.id))
+    () => new Set(rooms.filter(r => r.is_active !== false).map(r => r.id))
   );
 
   const handleToggleRoom = useCallback((roomId: string) => {
@@ -70,8 +73,8 @@ export default function AdminCalendarTab({ bookings, rooms, departments, current
   }, []);
 
   const handleSelectAll = useCallback(() => {
-    setVisibleRoomIds(new Set(rooms.map(r => r.id)));
-  }, [rooms]);
+    setVisibleRoomIds(new Set(activeRooms.map(r => r.id)));
+  }, [activeRooms]);
 
   const handleDeselectAll = useCallback(() => {
     setVisibleRoomIds(new Set());
@@ -87,8 +90,8 @@ export default function AdminCalendarTab({ bookings, rooms, departments, current
 
   // ── Computed values ──────────────────────────────────────────────────────────
   const visibleRooms = useMemo(
-    () => rooms.filter(r => visibleRoomIds.has(r.id)),
-    [rooms, visibleRoomIds]
+    () => activeRooms.filter(r => visibleRoomIds.has(r.id)),
+    [activeRooms, visibleRoomIds]
   );
 
   const currentViewBookings = useMemo(() => {
@@ -319,7 +322,7 @@ export default function AdminCalendarTab({ bookings, rooms, departments, current
             {/* Room checklist */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-sm flex-1">
               <RoomChecklist
-                rooms={rooms}
+                rooms={activeRooms}
                 visibleRoomIds={visibleRoomIds}
                 onToggleRoom={handleToggleRoom}
                 onSelectAll={handleSelectAll}

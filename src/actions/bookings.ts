@@ -122,9 +122,15 @@ export async function createBookingAction(formData: FormData): Promise<BookingRe
   }
 
   // Check Department restriction
-  if (room.restricted_to_department_id !== null && session.role !== 'admin') {
+  const isReceptionistBookingOnBehalf = session.role === 'receptionist' && Boolean(bookForEmployeeId) && bookForEmployeeId !== session.id;
+  const canBypassRestriction = session.role === 'admin' || isReceptionistBookingOnBehalf;
+
+  if (room.restricted_to_department_id !== null && !canBypassRestriction) {
     if (targetDepartmentId !== room.restricted_to_department_id) {
       const restrictedDept = departments.find(d => d.id === room.restricted_to_department_id);
+      if (session.role === 'receptionist') {
+        return { error: `Access Denied: As a receptionist, you must use the "Book On Behalf Of Employee" feature when booking restricted rooms (${room.name}).` };
+      }
       return { error: `Access Denied: ${room.name} is restricted exclusively to ${restrictedDept?.name || 'designated'} department personnel.` };
     }
   }
@@ -291,7 +297,8 @@ export async function createBookingAction(formData: FormData): Promise<BookingRe
           booked_for_employee_id: b.employee_id,
           booked_for_department_id: b.department_id,
           is_on_behalf: b.employee_id !== session.id,
-          admin_name: session.name || 'Admin',
+          admin_name: session.name || (session.role === 'receptionist' ? 'Receptionist' : 'Admin'),
+          performed_by_role: session.role,
           agenda: b.agenda,
           start_time: b.start_time,
           end_time: b.end_time,
@@ -317,7 +324,8 @@ export async function createBookingAction(formData: FormData): Promise<BookingRe
           booked_for_employee_id: b.employee_id,
           booked_for_department_id: b.department_id,
           is_on_behalf: b.employee_id !== session.id,
-          admin_name: session.name || 'Admin',
+          admin_name: session.name || (session.role === 'receptionist' ? 'Receptionist' : 'Admin'),
+          performed_by_role: session.role,
           agenda: b.agenda,
           start_time: b.start_time,
           end_time: b.end_time,

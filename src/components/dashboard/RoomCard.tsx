@@ -60,6 +60,7 @@ export default function RoomCard({
   
   const isAuthorizedForRestricted = 
     currentUserRole === 'admin' || 
+    currentUserRole === 'receptionist' || 
     (currentUserDeptId !== null && currentUserDeptId === room.restricted_to_department_id);
 
   // 2. Determine Live Status (Available vs Occupied)
