@@ -29,6 +29,7 @@ import { getStoreEmailLogs } from '@/lib/mock-store';
 export default function AdminSmtpTab() {
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(true);
+  const [verifying, setVerifying] = useState(false);
   const [settings, setSettings] = useState<SmtpSettings & { password_placeholder?: string }>({
     server_address: '',
     port: 587,
@@ -110,6 +111,7 @@ export default function AdminSmtpTab() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedback(null);
+    setVerifying(true);
 
     const formData = new FormData();
     formData.append('server_address', settings.server_address);
@@ -120,15 +122,19 @@ export default function AdminSmtpTab() {
     formData.append('sender_email', settings.sender_email);
     formData.append('sender_name', settings.sender_name);
 
-    startTransition(async () => {
+    try {
       const res = await saveSmtpSettingsAction(formData);
       if (res.error) {
         setFeedback({ success: false, text: res.error });
       } else if (res.success) {
-        setFeedback({ success: true, text: res.message || 'SMTP settings saved successfully.' });
+        setFeedback({ success: true, text: res.message || 'SMTP configuration verified and saved successfully.' });
         await loadSettings();
       }
-    });
+    } catch (err: any) {
+      setFeedback({ success: false, text: err.message || 'An unexpected error occurred during verification and save.' });
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const handleClearConfirm = async () => {
@@ -425,11 +431,11 @@ export default function AdminSmtpTab() {
                 <div className="flex items-center space-x-3">
                   <button
                     type="submit"
-                    disabled={isPending}
+                    disabled={isPending || verifying}
                     className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold flex items-center space-x-2 shadow-md shadow-emerald-600/25 transition-all"
                   >
-                    <Save className="w-4 h-4" />
-                    <span>{isPending ? 'Saving & Encrypting...' : 'Save Settings'}</span>
+                    {isPending || verifying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>{isPending || verifying ? 'Verifying...' : 'Save Settings'}</span>
                   </button>
 
                   <button

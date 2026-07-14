@@ -64,17 +64,84 @@ export async function saveSmtpSettingsAction(formData: FormData): Promise<{
   }
 
   const existing = getStoreSmtpSettings();
-  let password_encrypted = '';
+  let plainPassword = '';
 
   if (password_required) {
     if (passwordInput && passwordInput !== '••••••••') {
-      // Admin typed a new password -> encrypt before storing at rest
-      password_encrypted = encryptSmtpPassword(passwordInput);
+      // Admin typed a new password -> use for verification
+      plainPassword = passwordInput;
     } else if (existing.password_encrypted) {
-      // Admin kept the existing masked password
-      password_encrypted = existing.password_encrypted;
+      // Admin kept the existing masked password -> decrypt for verification
+      plainPassword = decryptSmtpPassword(existing.password_encrypted);
     } else {
       return { error: 'SMTP Password is required when authentication is enabled.' };
+    }
+
+    if (!plainPassword) {
+      return { error: 'Missing SMTP password. Please re-enter your password to verify and save settings.' };
+    }
+  }
+
+  // Live verification of SMTP server connection and authentication before saving anything
+  try {
+    const transportConfig: any = {
+      host: server_address,
+      port,
+      secure: port === 465, // true for 465, false for other ports
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
+    };
+
+    if (password_required && username) {
+      transportConfig.auth = {
+        user: username,
+        pass: plainPassword,
+      };
+    }
+
+    const transporter = nodemailer.createTransport(transportConfig);
+
+    await Promise.race([
+      transporter.verify(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Connection timed out after 10 seconds. Check server address and port.')), 10000)
+      ),
+    ]);
+  } catch (err: any) {
+    console.error('[SMTP Verification Error during Save]:', err);
+    let errMsg = err.message || 'Could not connect or authenticate with SMTP server';
+
+    if (errMsg.includes('ETIMEDOUT') || errMsg.includes('timed out') || errMsg.includes('timeout') || errMsg.includes('Connection timed out after 10 seconds')) {
+      errMsg = `Could not connect: connection timed out to ${server_address}:${port}. Please verify the server address and port number.`;
+    } else if (errMsg.includes('ECONNREFUSED')) {
+      errMsg = `Could not connect: connection refused by ${server_address}:${port}. Check if the server address and port are correct and accepting connections.`;
+    } else if (errMsg.includes('ENOTFOUND') || errMsg.includes('EAI_AGAIN') || errMsg.includes('getaddrinfo')) {
+      errMsg = `Could not connect: server address "${server_address}" could not be found (DNS lookup failed).`;
+    } else if (errMsg.includes('EAUTH') || errMsg.includes('535') || errMsg.includes('Authentication failed') || errMsg.includes('Invalid login') || errMsg.includes('Username and Password not accepted') || errMsg.includes('auth')) {
+      errMsg = `Authentication failed: invalid username or password for "${username}". Check your credentials and security settings.`;
+    } else if (errMsg.includes('self-signed certificate') || errMsg.includes('self signed certificate')) {
+      errMsg = `Connection failed: SSL/TLS certificate verification error (${errMsg}). Check your port and security type.`;
+    } else if (errMsg.includes('wrong version number') || errMsg.includes('SSL routines')) {
+      errMsg = `Connection failed: SSL/TLS handshake failed on port ${port}. If using port 587 or 25, do not use SSL Direct (use TLS/STARTTLS instead).`;
+    } else {
+      errMsg = `Could not verify SMTP configuration: ${errMsg}`;
+    }
+
+    // Do NOT save anything if verification fails — keep the previous working configuration intact
+    return {
+      success: false,
+      error: errMsg,
+    };
+  }
+
+  // Verification succeeded! Now proceed to encrypt password and store settings at rest.
+  let password_encrypted = '';
+  if (password_required) {
+    if (passwordInput && passwordInput !== '••••••••') {
+      password_encrypted = encryptSmtpPassword(passwordInput);
+    } else if (existing.password_encrypted) {
+      password_encrypted = existing.password_encrypted;
     }
   }
 
@@ -112,7 +179,7 @@ export async function saveSmtpSettingsAction(formData: FormData): Promise<{
   });
 
   revalidatePath('/admin');
-  return { success: true, message: 'SMTP settings saved securely with server-side encryption.' };
+  return { success: true, message: 'SMTP configuration verified and saved successfully.' };
 }
 
 /**
@@ -224,6 +291,9 @@ export async function sendTestEmailAction(
       host: serverAddress,
       port,
       secure: port === 465, // true for 465, false for other ports
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
     };
 
     if (passwordRequired && username) {
@@ -236,12 +306,17 @@ export async function sendTestEmailAction(
     const transporter = nodemailer.createTransport(transportConfig);
 
     // Verify connection first or send directly
-    const info = await transporter.sendMail({
-      from: `"${senderName}" <${senderEmail}>`,
-      to: testEmail,
-      subject: '[Dhanuka Test] SMTP Configuration Verification',
-      html: getTestEmailHtml(testEmail),
-    });
+    const info: any = await Promise.race([
+      transporter.sendMail({
+        from: `"${senderName}" <${senderEmail}>`,
+        to: testEmail,
+        subject: '[Dhanuka Test] SMTP Configuration Verification',
+        html: getTestEmailHtml(testEmail),
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Test email send timed out after 10 seconds.')), 10000)
+      ),
+    ]);
 
     addMockEmailLog({
       id: crypto.randomUUID(),
@@ -254,11 +329,25 @@ export async function sendTestEmailAction(
 
     return {
       success: true,
-      message: `Test verification email sent successfully to ${testEmail} (Message ID: ${info.messageId || 'DELIVERED'})`,
+      message: `Test verification email sent successfully to ${testEmail} (Message ID: ${info?.messageId || 'DELIVERED'})`,
     };
   } catch (err: any) {
     console.error('[SMTP Test Send Error]:', err);
-    const errMsg = err.message || 'SMTP Connection / Authentication failed';
+    let errMsg = err.message || 'SMTP Connection / Authentication failed';
+
+    if (errMsg.includes('ETIMEDOUT') || errMsg.includes('timed out') || errMsg.includes('timeout')) {
+      errMsg = `Could not connect: connection timed out to ${serverAddress}:${port}. Please verify the server address and port number.`;
+    } else if (errMsg.includes('ECONNREFUSED')) {
+      errMsg = `Could not connect: connection refused by ${serverAddress}:${port}. Check if the server address and port are correct and accepting connections.`;
+    } else if (errMsg.includes('ENOTFOUND') || errMsg.includes('EAI_AGAIN') || errMsg.includes('getaddrinfo')) {
+      errMsg = `Could not connect: server address "${serverAddress}" could not be found (DNS lookup failed).`;
+    } else if (errMsg.includes('EAUTH') || errMsg.includes('535') || errMsg.includes('Authentication failed') || errMsg.includes('Invalid login') || errMsg.includes('Username and Password not accepted') || errMsg.includes('auth')) {
+      errMsg = `Authentication failed: invalid username or password for "${username}". Check your credentials and security settings.`;
+    } else if (errMsg.includes('self-signed certificate') || errMsg.includes('self signed certificate')) {
+      errMsg = `Connection failed: SSL/TLS certificate verification error (${errMsg}). Check your port and security type.`;
+    } else if (errMsg.includes('wrong version number') || errMsg.includes('SSL routines')) {
+      errMsg = `Connection failed: SSL/TLS handshake failed on port ${port}. If using port 587 or 25, do not use SSL Direct (use TLS/STARTTLS instead).`;
+    }
 
     addMockEmailLog({
       id: crypto.randomUUID(),
@@ -338,6 +427,9 @@ export async function sendNotificationEmail({
     host: settings.server_address,
     port: settings.port,
     secure: settings.port === 465,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
   };
 
   if (settings.password_required && settings.username) {
