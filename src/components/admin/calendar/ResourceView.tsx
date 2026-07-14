@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { format, isSameDay, isToday, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { AdminBookingItem } from '@/actions/admin';
 import { Room } from '@/lib/types';
@@ -72,7 +72,24 @@ function DayView({ day, rooms, bookings, onBookingClick, onBookingHover }: {
   onBookingClick: (b: AdminBookingItem) => void;
   onBookingHover?: (d: { booking: AdminBookingItem; rect: DOMRect } | null) => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const isTodayDate = isToday(day);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const isMobile = window.innerWidth < 768;
+    if (isMobile && isTodayDate) {
+      const now = toIstDate(new Date());
+      const currentHourFloat = now.getHours() + now.getMinutes() / 60;
+      const clampedHour = Math.max(DAY_START_HOUR, Math.min(DAY_END_HOUR, currentHourFloat));
+      const timePixelOffset = (clampedHour - DAY_START_HOUR) * HOUR_COL_W;
+      const visibleHourWidth = scrollRef.current.clientWidth - ROOM_COL_W;
+      const targetScrollLeft = timePixelOffset - Math.max(0, visibleHourWidth) / 2;
+      scrollRef.current.scrollLeft = Math.max(0, targetScrollLeft);
+    } else {
+      scrollRef.current.scrollLeft = 0;
+    }
+  }, [day, isTodayDate]);
 
   // Current time indicator position (only shown for today)
   const nowLinePct = (() => {
@@ -90,7 +107,7 @@ function DayView({ day, rooms, bookings, onBookingClick, onBookingHover }: {
      * Single scrollable container — overflow:auto gives BOTH x and y scroll.
      * Sticky positioning works because the scroll ancestor is this element.
      */
-    <div className="overflow-auto flex-1 custom-scrollbar" style={{ height: '100%' }}>
+    <div ref={scrollRef} className="overflow-auto flex-1 custom-scrollbar" style={{ height: '100%' }}>
       <table
         style={{ width: totalContentW, minWidth: totalContentW, tableLayout: 'fixed', borderCollapse: 'collapse' }}
         className="text-left"

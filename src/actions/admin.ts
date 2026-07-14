@@ -765,7 +765,7 @@ export async function createEmployeeAction(formData: FormData) {
   sendNotificationEmail({
     to: email,
     subject: '[Dhanuka Meeting Rooms] Welcome to Dhanuka Meeting Portal',
-    html: getNewEmployeeEmailHtml(name, employeeId, `${appUrl}/login`),
+    html: getNewEmployeeEmailHtml(name, employeeId, initialPassword, `${appUrl}/login`),
     eventType: 'new_employee_created',
   }).catch((err) => console.error('[SMTP Trigger Error - new_employee]:', err));
 
@@ -941,6 +941,23 @@ export async function bulkImportEmployeesAction(
     }),
     eventType: 'bulk_import_completed',
   }).catch((err) => console.error('[SMTP Trigger Error - bulk_import]:', err));
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null) ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+    'http://localhost:3000';
+
+  for (const emp of newEmps) {
+    if (emp.email && emp.initial_password) {
+      sendNotificationEmail({
+        to: emp.email,
+        subject: '[Dhanuka Meeting Rooms] Welcome to Dhanuka Meeting Portal',
+        html: getNewEmployeeEmailHtml(emp.name, emp.employee_id, emp.initial_password, `${appUrl}/login`),
+        eventType: 'new_employee_created',
+      }).catch((err) => console.error(`[SMTP Trigger Error - bulk_import new_employee ${emp.employee_id}]:`, err));
+    }
+  }
 
   revalidatePath('/admin');
   return {

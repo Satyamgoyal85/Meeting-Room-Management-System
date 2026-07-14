@@ -69,7 +69,7 @@ export function getTestEmailHtml(recipient: string): string {
   );
 }
 
-export function getNewEmployeeEmailHtml(name: string, employeeId: string, loginUrl: string): string {
+export function getNewEmployeeEmailHtml(name: string, employeeId: string, temporaryPassword: string, loginUrl: string): string {
   return wrapDhanukaEmailTemplate(
     'Welcome to Dhanuka Meeting Portal',
     `<h2 style="margin-top: 0; color: #0f172a; font-size: 18px;">Welcome, ${name}!</h2>
@@ -84,12 +84,12 @@ export function getNewEmployeeEmailHtml(name: string, employeeId: string, loginU
          <span class="card-value" style="font-family: monospace;">${employeeId}</span>
        </div>
        <div class="card-row">
-         <span class="card-label">Initial Password</span>
-         <span class="card-value" style="color: #64748b;">Provided directly by your Administrator</span>
+         <span class="card-label">Temporary Password</span>
+         <span class="card-value" style="font-family: monospace; color: #0f172a; font-weight: 800;">${temporaryPassword}</span>
        </div>
      </div>
      <p style="background-color: #fef3c7; border: 1px solid #fde68a; color: #92400e; padding: 12px; border-radius: 8px; font-size: 13px;">
-       🔒 <strong>Security Note:</strong> For maximum security, your initial password is not transmitted via email. Please contact your system administrator or HR manager for your initial temporary password. You will be prompted to set a new permanent password immediately upon first login.
+       ⚠️ <strong>First Login Requirement:</strong> For account security, you are required to set a new permanent password immediately upon logging in for the first time with your temporary credentials above.
      </p>
      <div style="text-align: center;">
        <a href="${loginUrl}" class="btn">Access Meeting Portal</a>
