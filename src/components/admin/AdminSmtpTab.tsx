@@ -21,7 +21,8 @@ import {
   getSmtpSettingsAction,
   saveSmtpSettingsAction,
   clearSmtpSettingsAction,
-  sendTestEmailAction
+  sendTestEmailAction,
+  getEmailLogsAction
 } from '@/actions/smtp';
 import { SmtpSettings, EmailLogEntry } from '@/lib/types';
 import { getStoreEmailLogs } from '@/lib/mock-store';
@@ -88,13 +89,19 @@ export default function AdminSmtpTab() {
     }
   };
 
-  const loadLogs = () => {
+  const loadLogs = async () => {
     try {
-      // In a real environment, this can be fetched via server action
-      const storeLogs = getStoreEmailLogs();
-      setLogs([...storeLogs]);
+      const res = await getEmailLogsAction();
+      if (res.success && res.logs) {
+        setLogs([...res.logs]);
+      } else {
+        const storeLogs = getStoreEmailLogs();
+        setLogs([...storeLogs]);
+      }
     } catch (err) {
       console.error('Failed to load email logs:', err);
+      const storeLogs = getStoreEmailLogs();
+      setLogs([...storeLogs]);
     }
   };
 
@@ -126,10 +133,14 @@ export default function AdminSmtpTab() {
       const res = await saveSmtpSettingsAction(formData);
       if (res.error) {
         setFeedback({ success: false, text: res.error });
+        if (res.saved) {
+          await loadSettings();
+        }
       } else if (res.success) {
         setFeedback({ success: true, text: res.message || 'SMTP configuration verified and saved successfully.' });
         await loadSettings();
       }
+      await loadLogs();
     } catch (err: any) {
       setFeedback({ success: false, text: err.message || 'An unexpected error occurred during verification and save.' });
     } finally {
@@ -148,6 +159,7 @@ export default function AdminSmtpTab() {
         setFeedback({ success: true, text: res.message || 'SMTP settings cleared.' });
         setPasswordInput('');
         await loadSettings();
+        await loadLogs();
       }
     });
   };
@@ -176,7 +188,7 @@ export default function AdminSmtpTab() {
       } else {
         setTestStatus({ success: true, message: res.message });
       }
-      loadLogs();
+      await loadLogs();
     } catch (err: any) {
       setTestStatus({ success: false, error: err.message || 'Failed to send test email.' });
     } finally {

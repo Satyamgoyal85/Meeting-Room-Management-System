@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getStoreSmtpSettings, saveStoreSmtpSettings } from '@/lib/mock-store';
+import { getStoreSmtpSettings, saveStoreSmtpSettings, getStoreEmailLogs } from '@/lib/mock-store';
 import { SmtpSettings } from '@/lib/types';
 
 // Mock auth session
@@ -24,13 +24,13 @@ vi.mock('nodemailer', () => ({
   },
 }));
 
-describe('saveSmtpSettingsAction with live verification', () => {
+describe('saveSmtpSettingsAction with split persistence and verification', () => {
   const MOCK_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
   beforeEach(() => {
     process.env.SMTP_ENCRYPTION_KEY = MOCK_KEY;
     mockVerify.mockReset();
-    // Set initial working configuration in store
+    // Set initial configuration in store
     const initialSettings: SmtpSettings = {
       server_address: 'smtp.oldworking.com',
       port: 587,
@@ -48,7 +48,7 @@ describe('saveSmtpSettingsAction with live verification', () => {
     delete process.env.SMTP_ENCRYPTION_KEY;
   });
 
-  it('rejects saving and keeps existing configuration intact when verification fails (e.g. wrong port/unreachable)', async () => {
+  it('always saves entered fields so work is retained, but sets is_configured=false when live verification fails (connection/timeout)', async () => {
     const { saveSmtpSettingsAction } = await import('@/actions/smtp');
 
     // Simulate connection failure (e.g. wrong port 999 or timed out)
@@ -65,18 +65,26 @@ describe('saveSmtpSettingsAction with live verification', () => {
 
     const result = await saveSmtpSettingsAction(formData);
 
-    // Should return failure and error message explaining what failed
+    // Should return success=false for verification, but saved=true so UI reloads settings
     expect(result.success).toBe(false);
+    expect(result.saved).toBe(true);
     expect(result.error).toContain('Could not connect: connection timed out');
 
-    // Verify existing configuration was NOT overwritten
+    // Verify configuration WAS saved to retain entered values across refresh, but marked unverified (is_configured=false)
     const stored = getStoreSmtpSettings();
-    expect(stored.server_address).toBe('smtp.oldworking.com');
-    expect(stored.port).toBe(587);
-    expect(stored.username).toBe('olduser@working.com');
+    expect(stored.server_address).toBe('smtp.broken.com');
+    expect(stored.port).toBe(999);
+    expect(stored.username).toBe('newuser@broken.com');
+    expect(stored.is_configured).toBe(false);
+
+    // Verify failure log recorded
+    const logs = getStoreEmailLogs();
+    const latestLog = logs[logs.length - 1];
+    expect(latestLog.event_type).toBe('gateway_verification');
+    expect(latestLog.status).toBe('failed');
   });
 
-  it('rejects saving when authentication fails (invalid username or password)', async () => {
+  it('saves entered fields and sets is_configured=false when authentication fails', async () => {
     const { saveSmtpSettingsAction } = await import('@/actions/smtp');
 
     // Simulate authentication failure
@@ -94,14 +102,15 @@ describe('saveSmtpSettingsAction with live verification', () => {
     const result = await saveSmtpSettingsAction(formData);
 
     expect(result.success).toBe(false);
+    expect(result.saved).toBe(true);
     expect(result.error).toContain('Authentication failed: invalid username or password');
 
-    // Existing configuration intact
     const stored = getStoreSmtpSettings();
-    expect(stored.server_address).toBe('smtp.oldworking.com');
+    expect(stored.server_address).toBe('smtp.validserver.com');
+    expect(stored.is_configured).toBe(false);
   });
 
-  it('saves new configuration successfully when verification succeeds', async () => {
+  it('saves configuration and marks is_configured=true when live verification succeeds', async () => {
     const { saveSmtpSettingsAction } = await import('@/actions/smtp');
 
     // Simulate connection + auth success
@@ -119,13 +128,14 @@ describe('saveSmtpSettingsAction with live verification', () => {
     const result = await saveSmtpSettingsAction(formData);
 
     expect(result.success).toBe(true);
+    expect(result.saved).toBe(true);
     expect(result.message).toContain('SMTP configuration verified and saved successfully');
 
-    // Verify configuration WAS saved and password encrypted
     const stored = getStoreSmtpSettings();
     expect(stored.server_address).toBe('smtp.newverified.com');
     expect(stored.port).toBe(587);
     expect(stored.username).toBe('newuser@verified.com');
+    expect(stored.is_configured).toBe(true);
     expect(stored.password_encrypted).not.toBe('NewSecretPass123!');
     expect(stored.password_encrypted).toContain(':');
   });

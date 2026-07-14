@@ -1,15 +1,103 @@
 'use server';
 
 import { getSession } from '@/actions/auth';
-import { getStoreSmtpSettings, saveStoreSmtpSettings, addMockAuditLog, addMockEmailLog } from '@/lib/mock-store';
+import { getStoreSmtpSettings, saveStoreSmtpSettings, addMockAuditLog, addMockEmailLog, getStoreEmailLogs } from '@/lib/mock-store';
 import { encryptSmtpPassword, decryptSmtpPassword } from '@/lib/smtp-crypto';
-import { SmtpSettings } from '@/lib/types';
+import { SmtpSettings, EmailLogEntry } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import nodemailer from 'nodemailer';
 import { getTestEmailHtml } from '@/lib/email-templates';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
- * Server action to fetch current SMTP configuration for the Admin UI.
+ * Helper to fetch active SMTP settings from real Supabase table with fallback to local mock store.
+ */
+async function getActiveSmtpSettings(): Promise<SmtpSettings> {
+  const isPlaceholderUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || !process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!isPlaceholderUrl) {
+    try {
+      const supabase = createAdminClient();
+      const { data, error } = await (supabase.from('smtp_settings') as any).select('*').limit(1);
+      if (!error && data && data.length > 0) {
+        const row: any = data[0];
+        const settings: SmtpSettings = {
+          server_address: row.server_address || '',
+          port: row.port || 587,
+          username: row.username || '',
+          password_encrypted: row.password_encrypted || '',
+          password_required: row.password_required ?? true,
+          sender_email: row.sender_email || 'notifications@dhanuka.com',
+          sender_name: row.sender_name || 'Dhanuka Meeting Room System',
+          is_configured: row.is_configured ?? false,
+          updated_at: row.updated_at,
+          updated_by: row.updated_by,
+        };
+        // Keep in-memory cache synchronized with real DB
+        saveStoreSmtpSettings(settings);
+        return settings;
+      }
+    } catch (dbErr) {
+      console.error('[getActiveSmtpSettings DB Error]:', dbErr);
+    }
+  }
+  return getStoreSmtpSettings();
+}
+
+/**
+ * Helper to log email and verification events to both real Supabase public.email_logs and local mock store.
+ */
+async function logEmailEvent({
+  recipient,
+  subject,
+  event_type,
+  status,
+  error_message,
+  booking_id,
+}: {
+  recipient: string;
+  subject: string;
+  event_type: string;
+  status: string;
+  error_message?: string | null;
+  booking_id?: string | null;
+}) {
+  const id = crypto.randomUUID();
+  const created_at = new Date().toISOString();
+
+  // 1. Always record in local store as fallback
+  addMockEmailLog({
+    id,
+    recipient,
+    subject,
+    event_type,
+    status: status as any,
+    error_message: error_message || undefined,
+    created_at,
+  });
+
+  // 2. Record directly in real Supabase database public.email_logs
+  const isPlaceholderUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || !process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!isPlaceholderUrl) {
+    try {
+      const supabase = createAdminClient();
+      await (supabase.from('email_logs') as any).insert({
+        id,
+        recipient,
+        subject,
+        event_type,
+        booking_id: booking_id || null,
+        status,
+        error_message: error_message || null,
+        created_at,
+      });
+    } catch (dbErr) {
+      console.error('[logEmailEvent DB Insert Error]:', dbErr);
+    }
+  }
+}
+
+/**
+ * Server action to fetch current SMTP configuration for the Admin UI from real Supabase database.
  * Enforces backend RLS: only admins can view.
  * Never returns the raw encrypted or plaintext password back to the UI.
  */
@@ -23,10 +111,11 @@ export async function getSmtpSettingsAction(): Promise<{
     return { error: 'Unauthorized: Admin privileges required to access SMTP settings.' };
   }
 
-  const stored = getStoreSmtpSettings();
+  const settingsObj = await getActiveSmtpSettings();
+
   const safeSettings = {
-    ...stored,
-    password_placeholder: stored.password_encrypted ? '••••••••' : '',
+    ...settingsObj,
+    password_placeholder: settingsObj.password_encrypted ? '••••••••' : '',
     password_encrypted: undefined, // strip from frontend response
   };
 
@@ -34,10 +123,55 @@ export async function getSmtpSettingsAction(): Promise<{
 }
 
 /**
+ * Server action to fetch all email delivery and verification logs from real Supabase database.
+ */
+export async function getEmailLogsAction(): Promise<{
+  success?: boolean;
+  error?: string;
+  logs?: EmailLogEntry[];
+}> {
+  const session = await getSession();
+  if (!session || session.role !== 'admin') {
+    return { error: 'Unauthorized: Admin privileges required.' };
+  }
+
+  const isPlaceholderUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || !process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!isPlaceholderUrl) {
+    try {
+      const supabase = createAdminClient();
+      const { data, error } = await (supabase.from('email_logs') as any)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (!error && data) {
+        const mappedLogs: EmailLogEntry[] = data.map((row: any) => ({
+          id: row.id,
+          recipient: row.recipient,
+          subject: row.subject,
+          event_type: row.event_type,
+          status: row.status,
+          error_message: row.error_message || undefined,
+          created_at: row.created_at,
+        }));
+        return { success: true, logs: mappedLogs };
+      }
+    } catch (err) {
+      console.error('[getEmailLogsAction Error]:', err);
+    }
+  }
+
+  return { success: true, logs: getStoreEmailLogs() };
+}
+
+/**
  * Server action to save and encrypt SMTP settings.
+ * Splits saving (always persists values to DB right away) from verification check (sets is_configured status).
  */
 export async function saveSmtpSettingsAction(formData: FormData): Promise<{
   success?: boolean;
+  saved?: boolean;
   error?: string;
   message?: string;
 }> {
@@ -63,26 +197,84 @@ export async function saveSmtpSettingsAction(formData: FormData): Promise<{
     return { error: 'SMTP Username is required when authentication is enabled.' };
   }
 
-  const existing = getStoreSmtpSettings();
+  const existing = await getActiveSmtpSettings();
   let plainPassword = '';
+  let password_encrypted = '';
 
   if (password_required) {
     if (passwordInput && passwordInput !== '••••••••') {
-      // Admin typed a new password -> use for verification
       plainPassword = passwordInput;
+      password_encrypted = encryptSmtpPassword(passwordInput);
     } else if (existing.password_encrypted) {
-      // Admin kept the existing masked password -> decrypt for verification
       plainPassword = decryptSmtpPassword(existing.password_encrypted);
+      password_encrypted = existing.password_encrypted;
     } else {
       return { error: 'SMTP Password is required when authentication is enabled.' };
     }
 
     if (!plainPassword) {
-      return { error: 'Missing SMTP password. Please re-enter your password to verify and save settings.' };
+      return { error: 'Missing SMTP password. Please enter your password to save settings.' };
     }
   }
 
-  // Live verification of SMTP server connection and authentication before saving anything
+  const isPlaceholderUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || !process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  // 1. First, ALWAYS write the entered configuration fields (and encrypted password) to real Supabase database immediately.
+  // This ensures the admin's entered values persist across page refreshes even if live connection verification fails.
+  const updatedSettings: SmtpSettings = {
+    server_address,
+    port,
+    username: password_required ? username : '',
+    password_encrypted,
+    password_required,
+    sender_email,
+    sender_name,
+    is_configured: false, // will be upgraded to true if verification passes below
+    updated_at: new Date().toISOString(),
+    updated_by: session.id,
+  };
+
+  if (!isPlaceholderUrl) {
+    try {
+      const supabase = createAdminClient();
+      const { data: existingRows } = await (supabase.from('smtp_settings') as any).select('id').limit(1);
+      if (existingRows && existingRows.length > 0) {
+        await (supabase.from('smtp_settings') as any).update({
+          server_address,
+          port,
+          username: password_required ? username : '',
+          password_encrypted,
+          sender_name,
+          sender_email,
+          use_ssl: port === 465,
+          password_required,
+          is_configured: false,
+          updated_at: new Date().toISOString(),
+          updated_by: session.id,
+        }).eq('id', existingRows[0].id);
+      } else {
+        await (supabase.from('smtp_settings') as any).insert({
+          server_address,
+          port,
+          username: password_required ? username : '',
+          password_encrypted,
+          sender_name,
+          sender_email,
+          use_ssl: port === 465,
+          password_required,
+          is_configured: false,
+          updated_at: new Date().toISOString(),
+          updated_by: session.id,
+        });
+      }
+    } catch (dbErr) {
+      console.error('[saveSmtpSettings DB Upsert Error]:', dbErr);
+    }
+  }
+
+  saveStoreSmtpSettings(updatedSettings);
+
+  // 2. Now perform live connection and login verification using Nodemailer.
   try {
     const transportConfig: any = {
       host: server_address,
@@ -128,39 +320,43 @@ export async function saveSmtpSettingsAction(formData: FormData): Promise<{
       errMsg = `Could not verify SMTP configuration: ${errMsg}`;
     }
 
-    // Do NOT save anything if verification fails — keep the previous working configuration intact
+    // Log the failed verification check directly into real Supabase public.email_logs
+    await logEmailEvent({
+      recipient: `${server_address}:${port}`,
+      subject: '[Dhanuka Gateway] Live Connection Verification',
+      event_type: 'gateway_verification',
+      status: 'failed',
+      error_message: errMsg,
+    });
+
+    // Return failure for the live check, BUT indicate that configuration fields were saved
     return {
       success: false,
-      error: errMsg,
+      saved: true,
+      error: `Settings saved to database, but connection verification failed: ${errMsg}`,
     };
   }
 
-  // Verification succeeded! Now proceed to encrypt password and store settings at rest.
-  let password_encrypted = '';
-  if (password_required) {
-    if (passwordInput && passwordInput !== '••••••••') {
-      password_encrypted = encryptSmtpPassword(passwordInput);
-    } else if (existing.password_encrypted) {
-      password_encrypted = existing.password_encrypted;
+  // 3. Verification succeeded! Mark is_configured as true in Supabase and memory.
+  updatedSettings.is_configured = true;
+  if (!isPlaceholderUrl) {
+    try {
+      const supabase = createAdminClient();
+      await (supabase.from('smtp_settings') as any).update({ is_configured: true }).neq('server_address', 'NON_EXISTENT_STRING');
+    } catch (dbErr) {
+      console.error('[saveSmtpSettings DB Mark Configured Error]:', dbErr);
     }
   }
-
-  const updatedSettings: SmtpSettings = {
-    server_address,
-    port,
-    username: password_required ? username : '',
-    password_encrypted,
-    password_required,
-    sender_email,
-    sender_name,
-    is_configured: true,
-    updated_at: new Date().toISOString(),
-    updated_by: session.id,
-  };
-
   saveStoreSmtpSettings(updatedSettings);
 
-  // Log configuration change in audit log (NEVER log sensitive credentials or values)
+  // Log successful verification attempt
+  await logEmailEvent({
+    recipient: `${server_address}:${port}`,
+    subject: '[Dhanuka Gateway] Live Connection Verification',
+    event_type: 'gateway_verification',
+    status: 'sent',
+  });
+
   addMockAuditLog({
     id: crypto.randomUUID(),
     action_type: 'smtp_settings_updated',
@@ -179,7 +375,7 @@ export async function saveSmtpSettingsAction(formData: FormData): Promise<{
   });
 
   revalidatePath('/admin');
-  return { success: true, message: 'SMTP configuration verified and saved successfully.' };
+  return { success: true, saved: true, message: 'SMTP configuration verified and saved successfully to database.' };
 }
 
 /**
@@ -193,6 +389,16 @@ export async function clearSmtpSettingsAction(): Promise<{
   const session = await getSession();
   if (!session || session.role !== 'admin') {
     return { error: 'Unauthorized: Admin privileges required.' };
+  }
+
+  const isPlaceholderUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('placeholder') || !process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!isPlaceholderUrl) {
+    try {
+      const supabase = createAdminClient();
+      await (supabase.from('smtp_settings') as any).delete().neq('server_address', 'NON_EXISTENT_STRING');
+    } catch (dbErr) {
+      console.error('[clearSmtpSettingsAction DB Error]:', dbErr);
+    }
   }
 
   saveStoreSmtpSettings({
@@ -265,11 +471,11 @@ export async function sendTestEmailAction(
     if (customConfig.password && customConfig.password !== '••••••••') {
       plainPassword = customConfig.password;
     } else {
-      const active = getStoreSmtpSettings();
+      const active = await getActiveSmtpSettings();
       plainPassword = active.password_encrypted ? decryptSmtpPassword(active.password_encrypted) : '';
     }
   } else {
-    const active = getStoreSmtpSettings();
+    const active = await getActiveSmtpSettings();
     if (!active.is_configured || !active.server_address) {
       return { error: 'SMTP configuration not set up or not saved yet.' };
     }
@@ -318,13 +524,11 @@ export async function sendTestEmailAction(
       ),
     ]);
 
-    addMockEmailLog({
-      id: crypto.randomUUID(),
+    await logEmailEvent({
       recipient: testEmail,
       subject: '[Dhanuka Test] SMTP Configuration Verification',
       event_type: 'test_verification',
       status: 'sent',
-      created_at: new Date().toISOString(),
     });
 
     return {
@@ -349,14 +553,12 @@ export async function sendTestEmailAction(
       errMsg = `Connection failed: SSL/TLS handshake failed on port ${port}. If using port 587 or 25, do not use SSL Direct (use TLS/STARTTLS instead).`;
     }
 
-    addMockEmailLog({
-      id: crypto.randomUUID(),
+    await logEmailEvent({
       recipient: testEmail,
       subject: '[Dhanuka Test] SMTP Configuration Verification',
       event_type: 'test_verification',
       status: 'failed',
       error_message: errMsg,
-      created_at: new Date().toISOString(),
     });
 
     return {
@@ -394,31 +596,26 @@ export async function sendNotificationEmail({
     return { success: false, error: 'No valid recipient email address provided' };
   }
 
-  const settings = getStoreSmtpSettings();
+  const settings = await getActiveSmtpSettings();
   if (!settings.is_configured || !settings.server_address) {
-    // Silently log and skip without blocking or crashing application logic
-    addMockEmailLog({
-      id: crypto.randomUUID(),
+    await logEmailEvent({
       recipient: to,
       subject,
       event_type: eventType,
       status: 'failed',
       error_message: 'SMTP settings not configured on server',
-      created_at: new Date().toISOString(),
     });
     return { success: false, error: 'SMTP settings not configured on server' };
   }
 
   const plainPassword = settings.password_encrypted ? decryptSmtpPassword(settings.password_encrypted) : '';
   if (settings.password_required && !plainPassword) {
-    addMockEmailLog({
-      id: crypto.randomUUID(),
+    await logEmailEvent({
       recipient: to,
       subject,
       event_type: eventType,
       status: 'failed',
       error_message: 'Stored SMTP password could not be decrypted or is empty',
-      created_at: new Date().toISOString(),
     });
     return { success: false, error: 'Stored SMTP password could not be decrypted or is empty' };
   }
@@ -453,16 +650,13 @@ export async function sendNotificationEmail({
     } : undefined,
   };
 
-  // Attempt send with 1 retry logic for transient failures
   try {
     await transporter.sendMail(mailOptions);
-    addMockEmailLog({
-      id: crypto.randomUUID(),
+    await logEmailEvent({
       recipient: to,
       subject,
       event_type: eventType,
       status: 'sent',
-      created_at: new Date().toISOString(),
     });
     return { success: true };
   } catch (firstErr: any) {
@@ -470,26 +664,22 @@ export async function sendNotificationEmail({
     try {
       await new Promise((r) => setTimeout(r, 500));
       await transporter.sendMail(mailOptions);
-      addMockEmailLog({
-        id: crypto.randomUUID(),
+      await logEmailEvent({
         recipient: to,
         subject,
         event_type: eventType,
         status: 'sent',
-        created_at: new Date().toISOString(),
       });
       return { success: true };
     } catch (retryErr: any) {
       console.error(`[SMTP Notification Fatal] Second attempt failed for ${to} (${eventType}):`, retryErr);
       const errMsg = retryErr.message || 'SMTP delivery failed after retry';
-      addMockEmailLog({
-        id: crypto.randomUUID(),
+      await logEmailEvent({
         recipient: to,
         subject,
         event_type: eventType,
         status: 'failed',
         error_message: errMsg,
-        created_at: new Date().toISOString(),
       });
       return { success: false, error: errMsg };
     }
